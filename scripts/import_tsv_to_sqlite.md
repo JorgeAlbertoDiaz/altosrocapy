@@ -1,23 +1,46 @@
-# Intruccioens de uso
+# Instrucciones de uso
 
-El script `import_tsv_to_sqlite.py` permite que a partir de los archivos `.tsv` se pueda generar la base de datos `sqlite`, para poder correrlo asegurate que los archivos esten al mismo nivel que este archivo.
+El script `import_tsv_to_sqlite.py` permite generar la base de datos `sqlite` a partir de los archivos `.tsv` exportados.
 
-   ```bash
-   python3 scripts/import_tsv_to_sqlite.py
-   ```
+Las rutas por defecto del script están resueltas de forma dinámica relativas a la ubicación del propio script, por lo que funcionará sin importar la carpeta de ejecución o la máquina en la que te encuentres.
 
+## Uso Básico (Importación Completa)
 
-También puedes personalizar las rutas de la base de datos y de la carpeta TSV usando los argumentos `--db` y `--tsv-dir` si lo requieres.
+Ejecuta el script desde la raíz del proyecto para realizar la importación de datos completa:
 
+```bash
+python3 scripts/import_tsv_to_sqlite.py
+```
 
-   ```bash
-   python3 scripts/import_tsv_to_sqlite.py --db="../temps/altosroca.db" --tsv-dir="../temps/export_sqlserver/"
-   ```
+Esto generará la base de datos completa en `temps/altosroca.db` e importará todos los registros de la carpeta `temps/export_sqlserver/`.
 
+## Solo Estructura (Sin Datos)
 
-El script tambien incluye una **Opción `--only-schema`**: El script ahora soporta argumentos de línea de comandos. Puedes ejecutarlo especificando la bandera `--only-schema` si deseas generar únicamente las tablas vacías para documentarlas luego:
-   ```bash
-   python3 scripts/import_tsv_to_sqlite.py --only-schema
-   ```
+Si deseas generar únicamente las tablas vacías (útil para pruebas o documentación) sin importar registros:
 
+```bash
+python3 scripts/import_tsv_to_sqlite.py --only-schema
+```
 
+## Volcar la Estructura a Markdown (.md)
+
+Para generar la documentación DDL de la estructura de tablas de la base de datos en formato markdown (sin datos sensibles):
+
+```bash
+python3 scripts/import_tsv_to_sqlite.py --only-schema --dump-schema temps/schema.md
+```
+
+Esto creará un archivo `temps/schema.md` limpio con la sintaxis `CREATE TABLE` de cada tabla.
+
+## Parámetros Opcionales
+
+Puedes sobrescribir las rutas predeterminadas utilizando los siguientes argumentos de línea de comandos:
+
+* `--db`: Especifica una ruta personalizada para la base de datos SQLite.
+* `--tsv-dir`: Especifica la ruta de la carpeta que contiene los archivos `.tsv`.
+* `--dump-schema`: Especifica la ruta del archivo Markdown de salida para documentar el esquema.
+
+Ejemplo con rutas personalizadas:
+```bash
+python3 scripts/import_tsv_to_sqlite.py --db "/ruta/personalizada/database.db" --tsv-dir "/ruta/personalizada/tsv_files"
+```
