@@ -11,6 +11,11 @@ try:
 except ImportError:  # dev / frozen fallback
     from db import validate_credentials
 
+try:
+    from app import principal
+except ImportError:  # dev / frozen fallback
+    import principal
+
 WINDOW_WIDTH = 730
 WINDOW_HEIGHT = 330
 
@@ -56,7 +61,7 @@ def make_underlined_entry(parent: tk.Widget, width_px: int) -> tk.Frame:
     return container
 
 
-def on_access(username: tk.Entry, password: tk.Entry) -> None:
+def on_access(window: tk.Tk, username: tk.Entry, password: tk.Entry) -> None:
     user = username.get().strip()
     pwd = password.get().strip()
     if not user or not pwd:
@@ -68,7 +73,8 @@ def on_access(username: tk.Entry, password: tk.Entry) -> None:
         messagebox.showerror("AltosRoca", str(exc))
         return
     if ok:
-        messagebox.showinfo("AltosRoca", "Acceso correcto")
+        window.destroy()
+        principal.main(user)
     else:
         messagebox.showerror("AltosRoca", "Usuario o contraseña incorrectos")
 
@@ -187,7 +193,7 @@ def build_login(window: tk.Tk) -> None:
     button = tk.Button(
         right_panel,
         text="ACCEDER",
-        command=lambda: on_access(user_container.winfo_children()[0], pwd_entry),
+        command=lambda: on_access(window, user_container.winfo_children()[0], pwd_entry),
         relief="flat",
         bd=0,
         bg=COLOR_BUTTON_BG,
@@ -199,6 +205,14 @@ def build_login(window: tk.Tk) -> None:
     )
     button.place(x=65, y=230, width=445, height=40)
 
+    user_entry = user_container.winfo_children()[0]
+    submit = lambda _event=None: on_access(window, user_entry, pwd_entry) or "break"
+    window.bind("<Return>", submit)
+    user_entry.bind("<Return>", submit)
+    pwd_entry.bind("<Return>", submit)
+    button.configure(command=lambda: on_access(window, user_entry, pwd_entry))
+    user_entry.focus_set()
+
     make_window_draggable(window)
     add_window_buttons(window)
 
@@ -207,7 +221,10 @@ def main() -> None:
     window = tk.Tk()
     center_window(window)
     build_login(window)
+    window.protocol("WM_DELETE_WINDOW", window.destroy)
     window.mainloop()
+    # Ensure the process (and the PyInstaller onefile parent) dies cleanly.
+    sys.exit(0)
 
 
 if __name__ == "__main__":
