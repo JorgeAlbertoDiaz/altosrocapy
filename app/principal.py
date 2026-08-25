@@ -7,8 +7,10 @@ import tkinter.font as tkfont
 
 try:
     from app import login
+    from app import acceso_socios
 except ImportError:  # dev / frozen fallback
     import login
+    import acceso_socios
 
 WINDOW_WIDTH = 1366
 WINDOW_HEIGHT = 768
@@ -106,6 +108,9 @@ def build_sidebar(window: tk.Tk, font_family: str) -> tk.Frame:
 
 
 def open_module(window: tk.Tk, name: str, font_family: str) -> None:
+    if name == "Acceso Socios":
+        acceso_socios.open_window(window)
+        return
     top = tk.Toplevel(window)
     top.title(name)
     top.geometry("900x600")
@@ -161,6 +166,8 @@ def build_principal(window: tk.Tk, usuario: str) -> None:
     build_topbar(window, usuario)
     build_sidebar(window, font_family)
     build_main_area(window, font_family)
+
+    acceso_socios.open_window(window)
 
 
 def main(usuario: str) -> None:
