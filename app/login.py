@@ -4,6 +4,12 @@ import os
 import sys
 import tkinter as tk
 import tkinter.font as tkfont
+import tkinter.messagebox as messagebox
+
+try:
+    from app.db import validate_credentials
+except ImportError:  # dev / frozen fallback
+    from db import validate_credentials
 
 WINDOW_WIDTH = 730
 WINDOW_HEIGHT = 330
@@ -16,6 +22,9 @@ COLOR_ENTRY_TEXT = "#F0F0F0"
 COLOR_BUTTON_BG = "#404040"
 COLOR_BUTTON_ACTIVE = "#4A4A4A"
 COLOR_BUTTON_FG = "#E8D7C2"
+COLOR_WINDOW_BUTTONS = "#555555"
+
+TITLE_BAR_HEIGHT = 28
 
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "..", "temps", "logo.png")
 
@@ -51,17 +60,81 @@ def on_access(username: tk.Entry, password: tk.Entry) -> None:
     user = username.get().strip()
     pwd = password.get().strip()
     if not user or not pwd:
-        print("Usuario y contraseña son obligatorios")
+        messagebox.showwarning("AltosRoca", "Usuario y contraseña son obligatorios")
         return
-    print(f"Login intentado con usuario: {user}")
-    # Stub: authentication flow goes here.
+    try:
+        ok = validate_credentials(user, pwd)
+    except FileNotFoundError as exc:
+        messagebox.showerror("AltosRoca", str(exc))
+        return
+    if ok:
+        messagebox.showinfo("AltosRoca", "Acceso correcto")
+    else:
+        messagebox.showerror("AltosRoca", "Usuario o contraseña incorrectos")
+
+
+def make_window_draggable(window: tk.Tk) -> None:
+    """Allow moving the borderless window by dragging its top strip."""
+    offset = {"x": 0, "y": 0}
+
+    def on_press(event):
+        offset["x"] = event.x
+        offset["y"] = event.y
+
+    def on_drag(event):
+        window.geometry(
+            f"+{event.x_root - offset['x']}+{event.y_root - offset['y']}"
+        )
+
+    strip = tk.Frame(window, bg=BG_RIGHT, height=TITLE_BAR_HEIGHT)
+    strip.place(x=0, y=0, relwidth=1.0, height=TITLE_BAR_HEIGHT)
+    strip.bind("<ButtonPress-1>", on_press)
+    strip.bind("<B1-Motion>", on_drag)
+
+
+def add_window_buttons(window: tk.Tk) -> None:
+    """Custom minimize/close buttons in the top-right corner."""
+
+    def minimize():
+        window.iconify()
+
+    bar = tk.Frame(window, bg=BG_RIGHT)
+    bar.place(
+        x=WINDOW_WIDTH - 84,
+        y=4,
+        width=80,
+        height=22,
+    )
+
+    minimize_btn = tk.Label(
+        bar,
+        text="\u2013",
+        bg=BG_RIGHT,
+        fg=COLOR_WINDOW_BUTTONS,
+        font=("Helvetica", 13),
+        cursor="hand2",
+    )
+    minimize_btn.place(x=0, y=0, width=38, height=22)
+    minimize_btn.bind("<Button-1>", lambda e: minimize())
+
+    close_btn = tk.Label(
+        bar,
+        text="\u2715",
+        bg=BG_RIGHT,
+        fg=COLOR_WINDOW_BUTTONS,
+        font=("Helvetica", 12),
+        cursor="hand2",
+    )
+    close_btn.place(x=40, y=0, width=38, height=22)
+    close_btn.bind("<Button-1>", lambda e: window.destroy())
 
 
 def build_login(window: tk.Tk) -> None:
     window.title("AltosRoca — Login")
     window.resizable(False, False)
     window.configure(bg=BG_RIGHT)
-    window.overrideredirect(False)
+    # Remove the native title bar; custom buttons are drawn instead.
+    window.overrideredirect(True)
 
     left_width = int(WINDOW_WIDTH * 0.27)
 
@@ -125,6 +198,9 @@ def build_login(window: tk.Tk) -> None:
         cursor="hand2",
     )
     button.place(x=65, y=230, width=445, height=40)
+
+    make_window_draggable(window)
+    add_window_buttons(window)
 
 
 def main() -> None:
