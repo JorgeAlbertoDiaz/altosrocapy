@@ -2,3 +2,8 @@ temps/
 .atl/
 __pycache__/
 *.pyc
+.venv/
+data/
+build/tmp/
+dist-windows/
+dist/
