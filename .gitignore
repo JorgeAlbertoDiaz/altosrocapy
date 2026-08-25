@@ -1,2 +1,4 @@
 temps/
 .atl/
+__pycache__/
+*.pyc
