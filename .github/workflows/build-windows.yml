@@ -1,0 +1,39 @@
+name: Build Windows exe
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build
+        run: pyinstaller build/app.spec --noconfirm
+
+      - name: Zip portable package (exe + data)
+        shell: pwsh
+        run: |
+          if (Test-Path data/altosroca.db) {
+            Compress-Archive -Path dist/AltosRoca.exe, data/altosroca.db -DestinationPath dist/AltosRoca-portable.zip -Force
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AltosRoca-windows
+          path: |
+            dist/AltosRoca.exe
+            dist/AltosRoca-portable.zip
+          if-no-files-found: error
