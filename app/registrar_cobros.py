@@ -352,18 +352,18 @@ class RegistrarCobrosWindow(tk.Toplevel):
         self.search_var = tk.StringVar()
         self.entry_search = tk.Entry(
             frm_search, textvariable=self.search_var,
-            bg=SEARCH_BG, fg=SEARCH_FG,
+            bg="#FFFFFF", fg="#000000",
             font=("Helvetica", 11, "bold"),
-            relief="flat", bd=0,
-            insertbackground=SEARCH_FG,
+            relief="solid", bd=1,
+            insertbackground="#000000",
         )
         self.entry_search.place(x=0, y=3, width=540, height=30)
         self.entry_search.bind("<Return>", lambda _: self._do_search())
 
         tk.Button(
             frm_search, text="\U0001F50D", font=("Helvetica", 14),
-            bg="#888", fg="#FFF", relief="flat",
-            activebackground="#666", activeforeground="#FFF",
+            bg=BTN_BLUE, fg="#FFF", relief="flat",
+            activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
             cursor="hand2", command=self._do_search,
         ).place(x=548, y=3, width=40, height=30)
 
@@ -385,7 +385,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
                 "Importe Cobrado", "Saldo", "Descuento", "Motivo Dto", "Observaciones"]
         widths = [160, 80, 95, 95, 90, 70, 70, 90, 120]
         for c, h, w in zip(cols, hdrs, widths):
-            self.tree.heading(c, text=h, font=("Helvetica", 8, "bold"))
+            self.tree.heading(c, text=h)
             self.tree.column(c, width=w, minwidth=30, anchor="w")
 
         style = ttk.Style(self)
@@ -730,8 +730,8 @@ class RegistrarCobrosWindow(tk.Toplevel):
             importe = _safe_float(p.get("Importe"))
             saldo = _safe_float(p.get("Saldo"))
             desc = _safe_float(p.get("Descuento"))
-            motivo = p.get("MotivoDescuento", "")
-            obs = p.get("Observaciones", "")
+            motivo = p.get("MotivoDescuento") or ""
+            obs = p.get("Observaciones") or ""
 
             self.tree.insert("", "end", values=(
                 nom, doc, fcobro, venc,
