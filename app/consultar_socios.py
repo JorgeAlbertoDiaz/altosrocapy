@@ -680,51 +680,17 @@ class ConsultarSociosWindow(tk.Toplevel):
     # ── Actions ───────────────────────────────────────────────────────────
 
     def _on_pagar(self):
-        """Register monthly payment for current socio."""
+        """Open Registrar Cobros for current socio."""
         if not self.current_socio:
             messagebox.showinfo("Pagar", "No hay socio seleccionado.")
             return
 
         s = self.current_socio
-        nombre = f"{(s.get('Apellidos') or '').upper()}, {(s.get('Nombres') or '').upper()}"
-
-        # Get price from plan
-        plan_price = 0
-        conn = db.get_connection()
         try:
-            row = conn.execute(
-                "SELECT PrecioVigente FROM tbPlan WHERE idPlan = ?",
-                (s["id_Plan"],),
-            ).fetchone()
-            if row:
-                plan_price = _safe_float(row["PrecioVigente"])
-        finally:
-            conn.close()
-
-        if plan_price <= 0:
-            plan_price = 30000  # fallback
-
-        if not messagebox.askyesno(
-            "Confirmar Pago",
-            f"Socio: {nombre}\n"
-            f"Plan: {s.get('_plan_nomenclatura', '')}\n"
-            f"Importe: ${plan_price:,.0f}\n\n"
-            "¿Confirmar registro de cuota mensual?",
-        ):
-            return
-
-        try:
-            conn = db.get_connection()
-            _register_pago(conn, s["idSocio"], s["id_Plan"], plan_price)
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al registrar pago: {e}")
-            return
-        finally:
-            conn.close()
-
-        # Reload
-        self._load_and_show(s["idSocio"])
-        messagebox.showinfo("Pago", "Cuota registrada exitosamente.")
+            from app import registrar_cobros
+        except ImportError:
+            import registrar_cobros
+        registrar_cobros.open_window(self, socio_id=s["idSocio"])
 
     def _on_registrar_ingreso(self):
         """Register manual access."""

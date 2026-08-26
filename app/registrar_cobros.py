@@ -11,6 +11,11 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 try:
+    from tkcalendar import DateEntry
+except ImportError:
+    DateEntry = None
+
+try:
     from app import db
 except ImportError:
     import db
@@ -247,13 +252,25 @@ class CambioVencimientoDialog(tk.Toplevel):
 
         tk.Label(panel, text="Nuevo Vencimiento:", bg=BG,
                  font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=10, y=80)
-        self.date_var = tk.StringVar(value=hoy.strftime("%d/%m/%Y"))
-        self.entry_date = tk.Entry(
-            panel, textvariable=self.date_var,
-            bg="#FFF", fg=FG, font=("Helvetica", 11),
-            relief="solid", bd=1, width=15,
-        )
-        self.entry_date.place(x=140, y=78)
+
+        if DateEntry is not None:
+            self.entry_date = DateEntry(
+                panel, width=12, background=BTN_BLUE, foreground="white",
+                borderwidth=1, font=("Helvetica", 11),
+                date_pattern="dd/MM/yyyy",
+                year=hoy.year, month=hoy.month, day=hoy.day,
+            )
+            self.entry_date.place(x=140, y=78)
+            self._has_dateentry = True
+        else:
+            self.date_var = tk.StringVar(value=hoy.strftime("%d/%m/%Y"))
+            self.entry_date = tk.Entry(
+                panel, textvariable=self.date_var,
+                bg="#FFF", fg=FG, font=("Helvetica", 11),
+                relief="solid", bd=1, width=15,
+            )
+            self.entry_date.place(x=140, y=78)
+            self._has_dateentry = False
 
         tk.Label(panel, text="(formato: dd/mm/aaaa)", bg=BG,
                  font=("Helvetica", 7), fg="#888").place(x=254, y=82)
@@ -281,8 +298,11 @@ class CambioVencimientoDialog(tk.Toplevel):
 
     def _accept(self):
         try:
-            parts = self.date_var.get().split("/")
-            new_date = datetime.date(int(parts[2]), int(parts[1]), int(parts[0]))
+            if self._has_dateentry:
+                new_date = self.entry_date.get_date()
+            else:
+                parts = self.date_var.get().split("/")
+                new_date = datetime.date(int(parts[2]), int(parts[1]), int(parts[0]))
         except (ValueError, IndexError):
             messagebox.showerror("Error", "Fecha inválida. Use formato dd/mm/aaaa.",
                                  parent=self)
@@ -330,18 +350,18 @@ class RegistrarCobrosWindow(tk.Toplevel):
         self.search_var = tk.StringVar()
         self.entry_search = tk.Entry(
             frm_search, textvariable=self.search_var,
-            bg=SEARCH_BG, fg=SEARCH_FG,
+            bg="#FFFFFF", fg="#000000",
             font=("Helvetica", 11, "bold"),
-            relief="flat", bd=0,
-            insertbackground=SEARCH_FG,
+            relief="solid", bd=1,
+            insertbackground="#000000",
         )
         self.entry_search.place(x=0, y=3, width=540, height=30)
         self.entry_search.bind("<Return>", lambda _: self._do_search())
 
         tk.Button(
             frm_search, text="\U0001F50D", font=("Helvetica", 14),
-            bg="#888", fg="#FFF", relief="flat",
-            activebackground="#666", activeforeground="#FFF",
+            bg=BTN_BLUE, fg="#FFF", relief="flat",
+            activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
             cursor="hand2", command=self._do_search,
         ).place(x=548, y=3, width=40, height=30)
 
@@ -391,7 +411,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
         frm_right.place(x=right_x, y=tree_y0, width=right_w, height=tree_h)
 
         # --- Información del Socio (top right) ---
-        info_h = 130
+        info_h = 145
         frm_info = tk.LabelFrame(
             frm_right, text=" Información del Socio ", bg=BG,
             font=("Helvetica", 9, "bold"), relief="groove", bd=1,
@@ -401,27 +421,27 @@ class RegistrarCobrosWindow(tk.Toplevel):
 
         self.lbl_nombre = tk.Label(frm_info, text="", bg=BG,
                                     font=("Helvetica", 14, "bold"), fg=FG)
-        self.lbl_nombre.place(x=10, y=6)
+        self.lbl_nombre.place(x=10, y=8)
 
         self.lbl_dni = tk.Label(frm_info, text="", bg=BG,
                                  font=("Helvetica", 12, "bold"), fg=FG_LABEL)
-        self.lbl_dni.place(x=10, y=36)
+        self.lbl_dni.place(x=10, y=38)
 
         self.lbl_plan = tk.Label(frm_info, text="", bg=BG,
                                   font=("Helvetica", 10), fg=FG_LABEL)
-        self.lbl_plan.place(x=10, y=62)
+        self.lbl_plan.place(x=10, y=66)
 
         self.lbl_precio = tk.Label(frm_info, text="", bg=BG,
                                     font=("Helvetica", 11, "bold"), fg=FG_GREEN)
-        self.lbl_precio.place(x=10, y=82)
+        self.lbl_precio.place(x=10, y=90)
 
         self.lbl_ultimo_pago = tk.Label(frm_info, text="", bg=BG,
-                                         font=("Helvetica", 10), fg=FG_LABEL)
-        self.lbl_ultimo_pago.place(x=10, y=106)
+                                         font=("Helvetica", 10, "bold"), fg=FG_LABEL)
+        self.lbl_ultimo_pago.place(x=10, y=116)
 
         self.lbl_deuda = tk.Label(frm_info, text="", bg=BG,
                                    font=("Helvetica", 10, "bold"), fg=FG_WARN)
-        self.lbl_deuda.place(x=340, y=62)
+        self.lbl_deuda.place(x=340, y=66)
 
         # --- Datos del Cobro (below socio info) ---
         frm_cobro = tk.LabelFrame(
@@ -567,10 +587,11 @@ class RegistrarCobrosWindow(tk.Toplevel):
             frm_venc, text="Cambiar\nVencimiento", bg=BTN_BLUE, fg="#FFF",
             font=("Helvetica", 8, "bold"), relief="flat",
             activebackground=BTN_BLUE_ACTIVE, cursor="hand2",
-            command=self._open_cambio_venc, state="disabled",
+            command=self._open_cambio_venc,
         )
         self.btn_cambiar_venc.grid(row=0, column=2, rowspan=2, padx=(20, 0),
                                     sticky="ns", ipadx=8, ipady=4)
+        self.btn_cambiar_venc.grid_remove()
 
         # === BOTTOM BAR ===
         bar_h = 46
@@ -704,7 +725,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
         hoy = datetime.date.today()
         new_venc = _calc_new_vencimiento(venc_date, hoy)
         self.lbl_venc_nuevo.configure(text=new_venc.strftime("%d/%m/%Y"))
-        self.btn_cambiar_venc.configure(state="normal")
+        self.btn_cambiar_venc.grid()
 
         self.tree.delete(*self.tree.get_children())
         for p in s.get("_historial", []):
@@ -859,33 +880,162 @@ class RegistrarCobrosWindow(tk.Toplevel):
         if not self.current_socio:
             return
         s = self.current_socio
-        nombre = f"{(s.get('Apellidos') or '').upper()}, {(s.get('Nombres') or '').upper()}"
+        socio_nombre = f"{(s.get('Apellidos') or '').upper()}, {(s.get('Nombres') or '').upper()}"
+        dlg = AnulacionCobrosWindow(self, s["idSocio"], socio_nombre)
+        self.wait_window(dlg)
+        if dlg.result:
+            self._load_socio(s["idSocio"])
+
+
+# ── Ventana: Anulación de Cobros ──────────────────────────────────────────
+
+class AnulacionCobrosWindow(tk.Toplevel):
+    def __init__(self, parent, id_socio, socio_nombre):
+        super().__init__(parent)
+        self.title("Anulación de Cobros")
+        self.geometry("850x480")
+        self.minsize(750, 420)
+        self.configure(bg=BG)
+        self.transient(parent)
+        self.grab_set()
+        self.result = False
+
+        self.id_socio = id_socio
+        self.socio_nombre = socio_nombre
+
+        self._build()
+        self._load()
+
+    def _build(self):
+        tk.Label(
+            self, text=f"Anulación de Cobros — {self.socio_nombre}",
+            bg=BG, font=("Helvetica", 12, "bold"), fg=FG,
+        ).pack(fill="x", padx=PAD, pady=(8, 4), anchor="w")
+
+        frm = tk.LabelFrame(
+            self, text=" Histórico de Pagos ", bg=BG,
+            font=("Helvetica", 9, "bold"), relief="groove", bd=1,
+            labelanchor="nw",
+        )
+        frm.pack(fill="both", expand=True, padx=PAD, pady=(0, 4))
+
+        cols = ("id", "fecha_pago", "vencimiento", "importe", "tipo", "obs", "estado")
+        self.tree = ttk.Treeview(
+            frm, columns=cols, show="headings", selectmode="browse",
+        )
+        hdrs = ["ID", "Fecha Cobro", "Vencimiento", "Importe", "Tipo Pago",
+                "Observaciones", "Estado"]
+        widths = [50, 110, 110, 90, 110, 200, 90]
+        for c, h, w in zip(cols, hdrs, widths):
+            self.tree.heading(c, text=h)
+            self.tree.column(c, width=w, minwidth=30, anchor="w")
+
+        style = ttk.Style(self)
+        style.configure("A.Treeview", rowheight=22, font=("Helvetica", 8),
+                        background="#FFF", fieldbackground="#FFF")
+        style.configure("A.Treeview.Heading", font=("Helvetica", 8, "bold"))
+        style.map("A.Treeview",
+                  background=[("selected", SEL_BG)],
+                  foreground=[("selected", "#FFF")])
+        self.tree.configure(style="A.Treeview")
+
+        vsb = ttk.Scrollbar(frm, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=vsb.set)
+        self.tree.place(x=4, y=4, relwidth=0.98, relheight=0.96)
+        vsb.place(relx=0.985, y=4, relheight=0.96)
+
+        self.tree.tag_configure("anulado", foreground="#999999")
+
+        bar = tk.Frame(self, bg=BG, height=44)
+        bar.pack(fill="x", padx=PAD, pady=(0, 6))
+
+        self.btn_anular = tk.Button(
+            bar, text="ANULAR COBRO SELECCIONADO", bg=BTN_BLUE, fg="#FFF",
+            font=("Helvetica", 9, "bold"), relief="flat",
+            activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
+            cursor="hand2", command=self._on_anular,
+        )
+        self.btn_anular.place(x=0, y=4, width=260, height=34)
+
+        tk.Button(
+            bar, text="Cerrar", bg="#999", fg="#FFF",
+            font=("Helvetica", 9, "bold"), relief="flat",
+            activebackground="#777", activeforeground="#FFF",
+            cursor="hand2", command=self.destroy,
+        ).place(relx=1.0, x=-80, y=4, width=72, height=34, anchor="ne")
+
+    def _load(self):
+        data = _load_cobro_data(self.id_socio)
+        if not data:
+            return
+        self.tree.delete(*self.tree.get_children())
+        for p in data.get("_historial", []):
+            eliminado = str(p.get("Eliminado", "")) == "1"
+            estado = "ANULADO" if eliminado else "ACTIVO"
+            pagoid = p.get("idPago", "")
+            fcobro = _fmt(p.get("FechadePago"))
+            venc = _fmt(p.get("FechaVencimineto"))
+            importe = _safe_float(p.get("Importe"))
+            tipo_id = str(p.get("idTipoPago", "1"))
+            tipo_nom = TIPO_ID_REV.get(tipo_id, "")
+            obs = p.get("Observaciones") or ""
+            tag = "anulado" if eliminado else ""
+            self.tree.insert("", "end", values=(
+                pagoid, fcobro, venc,
+                f"${importe:,.0f}", tipo_nom, obs, estado,
+            ), tags=(tag,))
+
+    def _on_anular(self):
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showwarning("Anular", "Seleccione un cobro para anular.",
+                                   parent=self)
+            return
+        vals = self.tree.item(sel[0], "values")
+        estado = vals[6]
+        if estado == "ANULADO":
+            messagebox.showinfo("Anular", "Este cobro ya está anulado.", parent=self)
+            return
+
+        pagoid = vals[0]
+        fcobro = vals[1]
+        importe = vals[3]
 
         if not messagebox.askyesno(
-            "Anular Cobro",
-            f"¿Anular el último cobro de {nombre}?\n\n"
+            "Confirmar Anulación",
+            f"¿Anular el cobro #{pagoid}?\n\n"
+            f"Fecha: {fcobro}\n"
+            f"Importe: {importe}\n\n"
             "Esta acción queda registrada en auditoría.",
+            parent=self,
         ):
             return
 
         try:
             conn = db.get_connection()
-            ok = _anular_ultimo_cobro(conn, s["idSocio"])
+            ahora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.000")
+            conn.execute(
+                "UPDATE tbPagos SET Eliminado = '1', "
+                "FechaEliminacion = ? WHERE idPago = ?",
+                (ahora, int(pagoid)),
+            )
+            conn.commit()
         except Exception as e:
-            messagebox.showerror("Error", f"Error al anular: {e}")
+            messagebox.showerror("Error", f"Error al anular: {e}", parent=self)
             return
         finally:
             conn.close()
 
-        if ok:
-            self._load_socio(s["idSocio"])
-            messagebox.showinfo("Anular", "Cobro anulado exitosamente.")
-        else:
-            messagebox.showinfo("Anular", "No hay cobros para anular.")
+        self.result = True
+        self._load()
+        messagebox.showinfo("Anular", "Cobro anulado exitosamente.", parent=self)
 
 
-def open_window(parent=None):
-    return RegistrarCobrosWindow(parent)
+def open_window(parent=None, socio_id=None):
+    w = RegistrarCobrosWindow(parent)
+    if socio_id is not None:
+        w.after(100, lambda: w._load_socio(str(socio_id)))
+    return w
 
 
 if __name__ == "__main__":
