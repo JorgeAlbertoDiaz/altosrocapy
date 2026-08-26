@@ -39,7 +39,8 @@ def export_excel(tree, filepath) -> int:
 
 def export_pdf(tree, filepath) -> int:
     cols, rows = _grid_data(tree)
-    pdf = FPDF(orientation="L", unit="mm", format="A4")
+    # Portrait A4: usable width ~190 mm / 10 columns -> very small fonts.
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=12)
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 9)
@@ -47,30 +48,29 @@ def export_pdf(tree, filepath) -> int:
     pdf.ln(10)
 
     col_w = _pdf_col_widths(pdf, cols, rows)
-    pdf.set_font("Helvetica", "B", 7.5)
+    pdf.set_font("Helvetica", "B", 6)
     pdf.set_fill_color(26, 36, 48)
     pdf.set_text_color(255)
     for c, w in zip(cols, col_w):
-        pdf.cell(w, 6, _pdf_safe(c), border=1, fill=True, align="C")
+        pdf.cell(w, 5, _pdf_safe(c), border=1, fill=True, align="C")
     pdf.ln()
 
+    # Plain white rows: striping makes a table this dense unreadable.
     pdf.set_text_color(0)
-    pdf.set_font("Helvetica", "", 7.5)
-    fill = False
+    pdf.set_font("Helvetica", "", 5.5)
     for r in rows:
         for v, w in zip(r, col_w):
-            pdf.cell(w, 5.5, _pdf_safe(v), border=1, fill=fill)
+            pdf.cell(w, 4.5, _pdf_safe(v), border=1)
         pdf.ln()
-        fill = not fill
     pdf.output(filepath)
     return len(rows)
 
 
 def _pdf_col_widths(pdf, cols, rows):
+    """Column widths proportional to expected content, fitting the page."""
     usable = pdf.w - pdf.l_margin - pdf.r_margin
-    weights = [1.0, 2.6, 1.6, 0.9, 1.5, 1.5, 1.1, 1.0, 1.9, 0.9]
+    weights = [1.0, 2.8, 1.7, 0.8, 1.5, 1.5, 1.0, 0.9, 1.6, 0.8]
     total = sum(weights)
-    scale = min(usable / total, 10 ** 6)
     return [round(usable * wgt / total, 1) for wgt in weights]
 
 
