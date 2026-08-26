@@ -76,6 +76,45 @@ Radio buttons horizontales con variable `filter_var` (StringVar, default `"ACTIV
 
 - Botones Exportar: stub messagebox "Próximamente" por ahora.
 
+## Lógica de negocio
+
+### Definiciones
+
+- **Cuota vigente**: `tbPagos.FechaVencimineto >= fecha de hoy` (pagos no eliminados).
+- **Deudas pendientes**: existe al menos un registro en `tb_RegistroDeudas` con `Cancelada != '1'` y `Eliminado != '1'`.
+
+### Filtros
+
+| Filtro             | Criterio                                                                |
+| ------------------ | ----------------------------------------------------------------------- |
+| ACTIVOS            | Cuota vigente **Y** sin deudas pendientes                               |
+| INACTIVOS          | Cuota vencida (`FechaVencimineto < hoy`). Últimos 90 días por FechaBaja |
+| ACTIVOS C/SALDO    | Cuota vigente pero con saldo > 0 o deudas pendientes                    |
+| ACTIVOS POR PLAN   | Igual que ACTIVOS, filtrado por `tbPlan.Descripcion`                    |
+| INACTIVOS POR PLAN | Igual que INACTIVOS, filtrado por `tbPlan.Descripcion`                  |
+| POR DÍA            | Socio con pago registrado en la fecha seleccionada                      |
+
+### Nombre truncado
+
+El nombre se muestra como `APELLIDOS, NOMBRES` truncado a 16 caracteres (sin contar la coma).
+
+### Colores de fila
+
+| Condición           | Color de texto |
+| ------------------- | -------------- |
+| Activo              | Verde #008000  |
+| Activo con saldo    | Naranja #FF6600|
+| Inactivo            | Negro (default)|
+
+### Tablas consultadas
+
+| Tabla               | Columnas relevantes                                          |
+| ------------------- | ------------------------------------------------------------ |
+| `tbSocios`          | idSocio, Apellidos, Nombres, Documento, NroInscripcion, Estado, id_Plan, FechaBaja |
+| `tbPlan`            | idPlan, Nomenclatura, Descripcion                            |
+| `tbPagos`           | idSocio, FechaVencimineto, FechadePago, Importe, Saldo       |
+| `tb_RegistroDeudas` | idSocio, Cancelada, Eliminado                                |
+
 ## Paleta de colores
 
 | Elemento                | Color     |

@@ -8,9 +8,11 @@ import tkinter.font as tkfont
 
 try:
     from app import db
+    from app import simclock
     from app.resources import get_logo_path, apply_app_icon
 except ImportError:
     import db
+    import simclock
     from resources import get_logo_path, apply_app_icon
 
 WINDOW_WIDTH = 800
@@ -76,7 +78,7 @@ def query_socio(dni: str):
             (socio["idSocio"],),
         ).fetchone()
         fecha_vto = _parse_date(venc["v"] if venc else None)
-        hoy = datetime.date.today()
+        hoy = simclock.hoy()
         socio["vencimiento"] = (
             fecha_vto.strftime("%d-%m-%Y") if fecha_vto else "-"
         )

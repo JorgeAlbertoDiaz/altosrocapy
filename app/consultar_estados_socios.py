@@ -6,8 +6,15 @@ from tkinter import ttk, messagebox
 
 try:
     from app import db
+    from app import simclock
 except ImportError:
     import db
+    import simclock
+
+try:
+    from tkcalendar import DateEntry
+except ImportError:  # fallback if tkcalendar is unavailable
+    DateEntry = None
 
 # ── Spanish day/month names (no locale dependency) ────────────────────────
 _DAYS_ES = {
@@ -56,7 +63,7 @@ def _fmt_ddmmyyyy(raw):
 
 
 def _today_es():
-    t = datetime.date.today()
+    t = simclock.hoy()
     return f"{_DAYS_ES[t.weekday()]}, {t.day} de {_MONTHS_ES[t.month]} de {t.year}"
 
 
@@ -125,7 +132,7 @@ def populate_grid(tree, status_label, filter_mode, plan_desc=None, date=None):
     tree.delete(*tree.get_children())
     conn = db.get_connection()
     try:
-        hoy = datetime.date.today()
+        hoy = simclock.hoy()
 
         sql = """
             SELECT s.idSocio, s.Apellidos, s.Nombres, s.Documento,
@@ -279,15 +286,26 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
             activebackground=BG, command=self._on_filter)
         self.r_pordia.place(x=470, y=4)
 
-        self.entry_date = tk.Entry(
-            frm_filters, bg="#FFF", fg=FG, font=("Helvetica", 9),
-            relief="solid", bd=1, state="disabled")
-        self.entry_date.place(x=560, y=4, width=310, height=22)
-        # Pre-fill while normal, then disable
-        self.entry_date.configure(state="normal")
-        self.entry_date.delete(0, "end")
-        self.entry_date.insert(0, _today_es())
-        self.entry_date.configure(state="disabled", fg=FG_GRAY)
+        if DateEntry is not None:
+            # NOTE: create enabled with the date, disable afterwards —
+            # DateEntry ignores "date" if constructed already disabled.
+            self.entry_date = DateEntry(
+                frm_filters, year=simclock.hoy().year,
+                month=simclock.hoy().month, day=simclock.hoy().day,
+                date_pattern="dd/mm/yyyy", firstweekday="monday",
+                width=30, font=("Helvetica", 9))
+            self.entry_date.place(x=560, y=4)
+            self.entry_date.configure(state="disabled")
+            self.entry_date.bind("<<DateEntrySelected>>", lambda _: self._on_filter())
+        else:
+            self.entry_date = tk.Entry(
+                frm_filters, bg="#FFF", fg=FG, font=("Helvetica", 9),
+                relief="solid", bd=1, state="disabled")
+            self.entry_date.place(x=560, y=4, width=310, height=22)
+            self.entry_date.configure(state="normal")
+            self.entry_date.delete(0, "end")
+            self.entry_date.insert(0, simclock.hoy().strftime("%d/%m/%Y"))
+            self.entry_date.configure(state="disabled")
 
         # Row 1: plan radios + combo
         self.r_aplan = tk.Radiobutton(
@@ -401,18 +419,23 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
         self.combo_plan.configure(state="readonly" if plan_active else "disabled")
 
         if date_active:
-            self.entry_date.configure(state="normal", fg=FG)
+            self.entry_date.configure(state="normal")
         else:
-            self.entry_date.configure(state="disabled", fg=FG_GRAY)
+            self.entry_date.configure(state="disabled")
 
     def _refresh(self):
         mode = self.filter_var.get()
         plan = self.plan_var.get() if mode in ("ACTIVOS_POR_PLAN", "INACTIVOS_POR_PLAN") else None
         date = None
         if mode == "POR_DIA":
-            parsed = _parse_date_es(self.entry_date.get())
-            if parsed:
-                date = parsed.strftime("%Y-%m-%d")
+            if DateEntry is not None and hasattr(self.entry_date, "get_date"):
+                d = self.entry_date.get_date()
+                if d:
+                    date = d.strftime("%Y-%m-%d")
+            else:
+                parsed = _parse_date_es(self.entry_date.get())
+                if parsed:
+                    date = parsed.strftime("%Y-%m-%d")
 
         search = self.search_var.get().strip()
 
