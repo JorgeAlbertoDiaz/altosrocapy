@@ -21,49 +21,98 @@ intercepta (`WM_DELETE_WINDOW`) y hace `withdraw()` (ocultar/minimizar), nunca
 `destroy()`. Volver a abrirla desde el sidebar o la apertura automática hace
 `deiconify()` + `lift()` + foco en el input.
 
-## Estado inicial
+## Dimensiones generales
 
-- Campo de búsqueda vacío y con foco.
-- Panel de resultado visible pero sin datos: sin nombre, plan, vencimiento ni foto;
-  mensaje de ingreso previo y rótulo de estado ocultos.
+- **Tamaño fijo**: 800 x 600 px, **no redimensionable** (`resizable(False, False)`).
+- **Fondo general**: `#08142C` (azul muy oscuro).
+- **Gradiente vertical sutil**: ~30 bandas horizontales delgadas interpolando
+  `#08142C` → `#0C1D3A` de arriba a abajo. **NO** un fondo plano uniforme.
+- **NO** usar fondo gris.
 
-## Barra superior
+## Encabezado (barra superior)
 
-- Alto ~75 px, fondo `#2D4864`.
-- Logo corporativo a la izquierda (`temps/logo.png`; si no existe o falla, texto
-  "ALTOS ROCA" como fallback).
-- Texto centrado "ACCESO SOCIOS", color `#D7D7D7`, Segoe UI Light ~40–48 px
-  (fallback Helvetica).
+- **Alto**: ~75 px.
+- **Color de fondo**: `#304A66`.
+- Logo corporativo **alineado a la izquierda**, dentro del header, centrado
+  verticalmente (`temps/logo.png`; si no existe o falla, se omite — **NO** se usa
+  texto "ALTOS ROCA" como fallback).
+- **Título "ACCESO SOCIOS"** centrado horizontalmente en el header.
+- **Color del título**: `#D9D9D9`.
+- **Fuente del título**: Segoe UI Light, ~44 px, peso light.
+- **Fallback de fuente**: Helvetica (Linux).
 
 ## Campo de búsqueda
 
-- Dimensiones visuales 690 x 60 px, fondo `#E7E8EB`, fuente grande.
-- Solo acepta **dígitos**: validador Tk (`validatecommand` con `%P`, `vcmd =
-  window.register(...)`, `isdigit()`). Rechaza letras y entradas mixtas como
-  `123.5` o `12-34`.
-- ENTER sobre el campo dispara la máquina de estados.
+- **Fondo del campo**: BLANCO (`#FFFFFF`), **NO** `#E7E8EB`.
+- **Dimensiones visuales**: 690 x 60 px.
+- **Centrado horizontalmente**.
+- **Posición**: 16 px de gap debajo del encabezado (y = 91).
+- **Separación visible**: entre encabezado → campo → panel de resultado, **NO** deben
+  tocarse entre sí.
+- **Validador de solo dígitos**: lógica existente, conservar (`validatecommand` con
+  `%P`, `vcmd = window.register(...)`, `isdigit()`). Rechaza letras y entradas mixtas.
+- **Fuente grande**: ~22–26 px.
 
-## Área de resultado
+## Panel de resultado
 
-- Panel de 690 x 280 px, fondo `#E7E8EB`.
-- Nombre en negrita, color oscuro: `APELLIDOS, NOMBRES` (mayúsculas).
-- Línea `Plan: <Nomenclatura>`.
-- Línea `Vencimiento: dd-mm-yyyy`.
-- Mensaje de ingreso previo, color `#456FE5`: "Ya registró ingreso al día de hoy
-  hh:mm:ss" (solo si ya hubo acceso hoy; oculto inicialmente).
-- Rótulo de estado, negrita ~24–28 px (implementado con 26):
-  - `SOCIO HABILITADO` en `#008000`.
-  - `SOCIO INHABILITADO` en `#FF0000`.
-  - Oculto hasta la primera búsqueda.
-- Fotografía a la derecha, 140 x 130 px. No hay fotos reales cargadas: se muestra
-  una silueta/placeholder gris con el texto "SIN FOTO". No se decodifican los blobs
-  de `tbImagen`.
+- **Fondo**: gris claro `#E7E8EB`.
+- **Dimensiones**: 690 x 280 px.
+- **Centrado horizontalmente**.
+- **Posición**: y = 167 (91 input + 60 alto input + 16 gap).
+- **Separación visible** del campo de entrada (no deben tocarse).
+
+### Nombre del socio
+
+- **Posición**: esquina superior-izquierda del panel, `place(x=15, y=15)`.
+- **Formato**: `APELLIDOS, NOMBRES` (mayúsculas).
+- **Color**: negro.
+- **Fuente**: Helvetica 18, **no bold** (peso normal).
+
+### Plan
+
+- Debajo del nombre, `place(x=15, y=55)`.
+- Formato: `Plan: <Nomenclatura>`.
+- Fuente: Helvetica 13.
+
+### Vencimiento
+
+- Debajo del plan, `place(x=15, y=80)`.
+- Formato: `Vencimiento: dd-mm-yyyy`.
+- Fuente: Helvetica 13.
+
+### Mensaje de ingreso previo
+
+- Debajo del vencimiento, `place(x=15, y=110)`.
+- Formato: `"Ya registra ingreso al dia de hoy, horas: hh:mm:ss"`.
+- Color: `#4169E1` (azul royal).
+- Fuente: Helvetica 12.
+- **Oculto inicialmente**.
+
+### Estado
+
+- Debajo del mensaje de ingreso, `place(x=15, y=170)`.
+- `SOCIO HABILITADO` en `#008000` (verde).
+- `SOCIO INHABILITADO` en `#FF0000` (rojo).
+- Fuente: Helvetica 24 bold.
+- **Oculto inicialmente**.
+
+### Foto
+
+- **Posición**: sector superior-derecha del panel, `place(x=535, y=15)`.
+- **Tamaño**: 140 x 130 px.
+- **Fondo**: NEGRO (`#000000`).
+- **Silueta**: color BLANCO (`#FFFFFF`), NO gris. Se dibuja con un Canvas
+  conteniendo óvalos blancos (cabeza + hombros) sobre fondo negro.
+- **Borde delgado**: `highlightthickness=1`, `highlightbackground="#888888"`.
 
 ## Botón VER SOCIO
 
-Centrado en la parte inferior. Fondo `#314863`, texto blanco. Abre la ventana
-Consultar Socios posicionada en el socio mostrado actualmente (stub 900 x 600 que
-indica el socio actual).
+- **Tamaño**: ~130 x 36 px.
+- **Posición**: centrado horizontalmente, y = 482 (167 panel + 280 panel + 35 gap).
+- **Color de fondo**: `#314863`.
+- **Borde gris visible**: `borderwidth=1`, `relief=solid`.
+- **Texto**: blanco.
+- **Separación mínima**: 35 px entre el panel de resultado y el botón.
 
 ## Máquina de estados
 
@@ -112,10 +161,15 @@ Criterios:
 
 | Elemento                    | Color     |
 | --------------------------- | --------- |
-| Fondo barra superior        | `#2D4864` |
-| Texto "ACCESO SOCIOS"       | `#D7D7D7` |
-| Campo de búsqueda / panel   | `#E7E8EB` |
-| Mensaje ingreso previo      | `#456FE5` |
+| Fondo general               | `#08142C` |
+| Fondo gradiente inferior    | `#0C1D3A` |
+| Encabezado                  | `#304A66` |
+| Texto "ACCESO SOCIOS"       | `#D9D9D9` |
+| Input fondo                 | `#FFFFFF` |
+| Panel resultado             | `#E7E8EB` |
+| Mensaje ingreso previo      | `#4169E1` |
 | SOCIO HABILITADO            | `#008000` |
 | SOCIO INHABILITADO          | `#FF0000` |
 | Botón VER SOCIO             | `#314863` |
+| Foto fondo                  | `#000000` |
+| Foto silueta                | `#FFFFFF` |

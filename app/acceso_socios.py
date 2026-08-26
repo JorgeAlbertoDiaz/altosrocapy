@@ -4,23 +4,29 @@ import datetime
 import os
 import sqlite3
 import tkinter as tk
+import tkinter.font as tkfont
 
 try:
     from app import db
-except ImportError:  # dev / frozen fallback
+except ImportError:
     import db
 
-WINDOW_WIDTH = 780
-WINDOW_HEIGHT = 620
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 600
 
-COLOR_HEADER_BG = "#2D4864"
-COLOR_HEADER_FG = "#D7D7D7"
+COLOR_MAIN_BG = "#08142C"
+COLOR_MAIN_BG_BOTTOM = "#0C1D3A"
+COLOR_HEADER_BG = "#304A66"
+COLOR_HEADER_FG = "#D9D9D9"
+COLOR_INPUT_BG = "#FFFFFF"
 COLOR_PANEL_BG = "#E7E8EB"
-COLOR_TEXT_DARK = "#222222"
-COLOR_PRIOR_MSG = "#456FE5"
+COLOR_TEXT_DARK = "#000000"
+COLOR_PRIOR_MSG = "#4169E1"
 COLOR_ENABLED = "#008000"
 COLOR_DISABLED = "#FF0000"
 COLOR_BUTTON_BG = "#314863"
+COLOR_PHOTO_BG = "#000000"
+COLOR_PHOTO_FG = "#FFFFFF"
 
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "..", "temps", "logo.png")
 
@@ -91,25 +97,61 @@ def query_socio(dni: str):
         conn.close()
 
 
+def _interpolate_color(start: str, end: str, t: float) -> str:
+    r1, g1, b1 = (int(start[i:i + 2], 16) for i in (1, 3, 5))
+    r2, g2, b2 = (int(end[i:i + 2], 16) for i in (1, 3, 5))
+    return "#{:02x}{:02x}{:02x}".format(
+        round(r1 + (r2 - r1) * t),
+        round(g1 + (g2 - g1) * t),
+        round(b1 + (b2 - b1) * t),
+    )
+
+
+def _draw_silhouette(canvas: tk.Canvas, w: int, h: int) -> None:
+    """Draw a white head+shoulders silhouette on a black canvas."""
+    canvas.create_oval(
+        w // 2 - 25, 15, w // 2 + 25, 65,
+        fill=COLOR_PHOTO_FG, outline=COLOR_PHOTO_FG,
+    )
+    canvas.create_arc(
+        w // 2 - 55, 50, w // 2 + 55, 140,
+        start=0, extent=180,
+        style="pieslice",
+        fill=COLOR_PHOTO_FG, outline=COLOR_PHOTO_FG,
+    )
+
+
 class AccesoSociosWindow(tk.Toplevel):
     def __init__(self, parent=None):
         super().__init__(parent) if parent else super().__init__()
         self.title("Acceso Socios")
+        self.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         self.resizable(False, False)
+        self.configure(bg=COLOR_MAIN_BG)
         self.protocol("WM_DELETE_WINDOW", self.withdraw)
 
         self.state = "waiting"
         self.current_socio = None
         self._logo_ref = None
 
-        available_fonts = {f.lower() for f in tkfont_families(self)}
+        available_fonts = {f.lower() for f in tkfont.families(self)}
         light_family = (
-            "Segoe UI Light" if "segoe ui light" in available_fonts else "Helvetica"
+            "Segoe UI Light" if "segoe ui light" in available_fonts
+            else "Helvetica"
         )
 
+        gradient_steps = 30
+        band_h = WINDOW_HEIGHT // gradient_steps
+        for i in range(gradient_steps):
+            color = _interpolate_color(
+                COLOR_MAIN_BG, COLOR_MAIN_BG_BOTTOM, i / (gradient_steps - 1)
+            )
+            tk.Frame(self, bg=color, height=band_h).place(
+                x=0, y=i * band_h, relwidth=1.0, height=band_h + 1
+            )
+
         header = tk.Frame(self, bg=COLOR_HEADER_BG, height=75)
-        header.pack(side="top", fill="x")
-        header.pack_propagate(False)
+        header.place(x=0, y=0, relwidth=1.0, height=75)
 
         logo = None
         if os.path.isfile(LOGO_PATH):
@@ -119,56 +161,43 @@ class AccesoSociosWindow(tk.Toplevel):
                 logo = None
         if logo is not None:
             self._logo_ref = logo
-            tk.Label(header, image=logo, bg=COLOR_HEADER_BG).pack(
-                side="left", padx=12
-            )
-        else:
-            tk.Label(
-                header,
-                text="ALTOS ROCA",
-                bg=COLOR_HEADER_BG,
-                fg="#FFFFFF",
-                font=("Helvetica", 14, "bold"),
-            ).pack(side="left", padx=12)
+            tk.Label(header, image=logo, bg=COLOR_HEADER_BG).place(x=12, rely=0.5, anchor="w")
 
         tk.Label(
             header,
             text="ACCESO SOCIOS",
             bg=COLOR_HEADER_BG,
             fg=COLOR_HEADER_FG,
-            font=(light_family, 40),
+            font=(light_family, 44),
         ).place(relx=0.5, rely=0.5, anchor="center")
 
-        input_wrap = tk.Frame(self, bg="#FFFFFF", bd=0)
-        input_wrap.pack(pady=(15, 10))
-        input_inner = tk.Frame(input_wrap, bg=COLOR_PANEL_BG,
-                               width=690, height=60)
-        input_inner.pack_propagate(False)
-        input_inner.pack()
+        input_frame = tk.Frame(self, bg=COLOR_INPUT_BG, width=690, height=60)
+        input_frame.place(x=(WINDOW_WIDTH - 690) // 2, y=91)
+        input_frame.pack_propagate(False)
 
         vcmd = (self.register(lambda p: p == "" or p.isdigit()), "%P")
         self.entry = tk.Entry(
-            input_inner,
-            bg=COLOR_PANEL_BG,
+            input_frame,
+            bg=COLOR_INPUT_BG,
             fg=COLOR_TEXT_DARK,
-            font=("Helvetica", 22),
+            font=("Helvetica", 24),
             justify="center",
             validate="key",
             validatecommand=vcmd,
             relief="flat",
+            bd=0,
+            highlightthickness=0,
         )
-        self.entry.pack(fill="both", expand=True, padx=2, pady=2)
+        self.entry.place(relwidth=1.0, relheight=1.0, x=4, y=4, width=-8, height=-8)
         self.entry.bind("<Return>", self._on_enter)
 
-        panel_wrap = tk.Frame(self, bg="#FFFFFF")
-        panel_wrap.pack(pady=5)
-        panel = tk.Frame(panel_wrap, bg=COLOR_PANEL_BG, width=690, height=280)
+        panel = tk.Frame(self, bg=COLOR_PANEL_BG, width=690, height=280)
+        panel.place(x=(WINDOW_WIDTH - 690) // 2, y=167)
         panel.pack_propagate(False)
-        panel.pack()
 
         self.lbl_nombre = tk.Label(
             panel, text="", bg=COLOR_PANEL_BG, fg=COLOR_TEXT_DARK,
-            font=("Helvetica", 18, "bold"), anchor="w",
+            font=("Helvetica", 18), anchor="w",
         )
         self.lbl_plan = tk.Label(
             panel, text="", bg=COLOR_PANEL_BG, fg=COLOR_TEXT_DARK,
@@ -184,20 +213,27 @@ class AccesoSociosWindow(tk.Toplevel):
         )
         self.lbl_estado = tk.Label(
             panel, text="", bg=COLOR_PANEL_BG,
-            font=("Helvetica", 26, "bold"),
+            font=("Helvetica", 24, "bold"),
         )
-        self.lbl_nombre.place(x=20, y=25, width=500)
-        self.lbl_plan.place(x=20, y=70)
-        self.lbl_vencimiento.place(x=20, y=95)
-        self.lbl_previo.place(x=20, y=130)
-        self.lbl_estado.place(x=20, y=200)
 
-        photo_frame = tk.Frame(panel, bg="#BFC4CC", width=140, height=130)
-        photo_frame.place(relx=1.0, x=-15, y=15, anchor="ne")
-        tk.Label(
-            photo_frame, text="SIN FOTO", bg="#BFC4CC", fg="#666666",
-            font=("Helvetica", 11),
-        ).place(relx=0.5, rely=0.5, anchor="center")
+        self.lbl_nombre.place(x=15, y=15, width=500)
+        self.lbl_plan.place(x=15, y=55)
+        self.lbl_vencimiento.place(x=15, y=80)
+        self.lbl_previo.place(x=15, y=110)
+        self.lbl_estado.place(x=15, y=170)
+
+        photo_frame = tk.Frame(
+            panel, bg=COLOR_PHOTO_BG, width=140, height=130,
+            highlightthickness=1, highlightbackground="#888888",
+        )
+        photo_frame.place(x=535, y=15)
+
+        silhouette_canvas = tk.Canvas(
+            photo_frame, bg=COLOR_PHOTO_BG, width=140, height=130,
+            highlightthickness=0, bd=0,
+        )
+        silhouette_canvas.place(relwidth=1.0, relheight=1.0)
+        _draw_silhouette(silhouette_canvas, 140, 130)
 
         btn = tk.Button(
             self,
@@ -207,11 +243,12 @@ class AccesoSociosWindow(tk.Toplevel):
             activebackground="#3F5A7C",
             activeforeground="#FFFFFF",
             font=("Helvetica", 12, "bold"),
-            relief="flat",
+            relief="solid",
+            borderwidth=1,
             cursor="hand2",
             command=self._open_consultar_socios,
         )
-        btn.pack(pady=(12, 0), ipadx=24, ipady=6)
+        btn.place(x=(WINDOW_WIDTH - 130) // 2, y=482, width=130, height=36)
 
     # -- state machine ---------------------------------------------------
 
@@ -238,7 +275,7 @@ class AccesoSociosWindow(tk.Toplevel):
         self.lbl_vencimiento.configure(text=f"Vencimiento: {socio['vencimiento']}")
         if socio.get("ingreso_previo"):
             self.lbl_previo.configure(
-                text=f"Ya registró ingreso al día de hoy {socio['ingreso_previo']}"
+                text=f"Ya registra ingreso al dia de hoy, horas: {socio['ingreso_previo']}"
             )
         else:
             self.lbl_previo.configure(text="")
@@ -309,12 +346,7 @@ def open_window(parent=None) -> AccesoSociosWindow:
     return win
 
 
-def tkfont_families(widget):
-    import tkinter.font as tkfont
-    return tkfont.families(widget)
-
-
-if __name__ == "__main__":  # manual smoke run
+if __name__ == "__main__":
     root = tk.Tk()
     root.withdraw()
     open_window(root)

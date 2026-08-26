@@ -13,7 +13,7 @@ a = Analysis(
     ["../app/login.py"],
     pathex=[".."],
     binaries=[],
-    datas=[("../data/altosroca.db", "data")],
+    datas=[("../data/altosroca.db", "data"), ("../temps/logo.png", "temps")],
     hiddenimports=[],
     hookspath=[],
     runtime_hooks=[],
