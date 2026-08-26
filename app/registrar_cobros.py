@@ -2,6 +2,7 @@
 
 Ventana de caja/recepción para cobrar cuotas mensuales.
 NO administra deudas ni saldos manuales.
+Layout estilo WinForms legacy clásico.
 """
 
 import calendar
@@ -16,7 +17,7 @@ except ImportError:
 
 # ── Constants ─────────────────────────────────────────────────────────────
 
-W, H = 1250, 600
+W, H = 1250, 620
 PAD = 8
 
 BG = "#F0F0F0"
@@ -35,13 +36,12 @@ SEARCH_BG = "#3B6FA0"
 SEARCH_FG = "#FFFFFF"
 SEL_BG = "#0078D7"
 
-# idTipoPago mapping
 TIPOS_PAGO = ["EFECTIVO", "TRANSFERENCIA", "TARJETA", "MERCADO PAGO"]
 TIPO_ID_MAP = {"EFECTIVO": "1", "TRANSFERENCIA": "2", "TARJETA": "3", "MERCADO PAGO": "4"}
 TIPO_ID_REV = {v: k for k, v in TIPO_ID_MAP.items()}
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────
+
 
 def _parse_date(raw):
     if not raw:
@@ -75,7 +75,6 @@ def _safe_float(val, default=0.0):
 
 
 def _add_months(d, months):
-    """Add months to a date, clamping to end of month."""
     month = d.month - 1 + months
     year = d.year + month // 12
     month = month % 12 + 1
@@ -84,17 +83,11 @@ def _add_months(d, months):
 
 
 def _calc_new_vencimiento(venc_actual_date, hoy):
-    """Calculate new vencimiento based on business rules.
-
-    Case 1: Expired/new → hoy + 1 month - 1 day
-    Case 2: Still valid → venc_actual + 1 month - 1 day
-    """
     if venc_actual_date and venc_actual_date >= hoy:
-        base = venc_actual_date  # Case 2: extend from current vencimiento
+        base = venc_actual_date
     else:
-        base = hoy  # Case 1: start from today
-    new_venc = _add_months(base, 1) - datetime.timedelta(days=1)
-    return new_venc
+        base = hoy
+    return _add_months(base, 1) - datetime.timedelta(days=1)
 
 
 # ── Data access ───────────────────────────────────────────────────────────
@@ -121,7 +114,6 @@ def _search_socios(query):
 
 
 def _load_cobro_data(id_socio):
-    """Load all data needed for the cobros screen."""
     conn = db.get_connection()
     try:
         s = conn.execute(
@@ -131,7 +123,6 @@ def _load_cobro_data(id_socio):
             return None
         socio = dict(s)
 
-        # Plan
         plan = conn.execute(
             "SELECT Nomenclatura, Descripcion, PrecioVigente "
             "FROM tbPlan WHERE idPlan = ?",
@@ -141,7 +132,6 @@ def _load_cobro_data(id_socio):
         socio["_plan_desc"] = plan["Descripcion"] if plan else ""
         socio["_plan_precio"] = _safe_float(plan["PrecioVigente"]) if plan else 0
 
-        # Latest payment (for vencimiento and last pago info)
         pago = conn.execute(
             "SELECT * FROM tbPagos WHERE idSocio = ? "
             "AND (Eliminado IS NULL OR Eliminado != '1') "
@@ -150,7 +140,6 @@ def _load_cobro_data(id_socio):
         ).fetchone()
         socio["_ultimo_pago"] = dict(pago) if pago else {}
 
-        # Current vencimiento
         venc = conn.execute(
             "SELECT MAX(FechaVencimineto) AS v FROM tbPagos "
             "WHERE idSocio = ? AND (Eliminado IS NULL OR Eliminado != '1')",
@@ -158,7 +147,6 @@ def _load_cobro_data(id_socio):
         ).fetchone()
         socio["_vencimiento"] = venc["v"] if venc else None
 
-        # Pending debts (warning only)
         deudas = conn.execute(
             "SELECT SUM(ImporteDeuda) AS total FROM tb_RegistroDeudas "
             "WHERE idSocio = ? AND (Cancelada IS NULL OR Cancelada != '1') "
@@ -167,7 +155,6 @@ def _load_cobro_data(id_socio):
         ).fetchone()
         socio["_deudas"] = _safe_float(deudas["total"]) if deudas and deudas["total"] else 0
 
-        # Payment history
         pagos = conn.execute(
             "SELECT p.*, s.Apellidos, s.Nombres, s.Documento "
             "FROM tbPagos p "
@@ -186,7 +173,6 @@ def _load_cobro_data(id_socio):
 def _register_cobro(conn, id_socio, id_plan, fecha_pago, venc_nuevo,
                      importe, descuento, motivo_desc, tipo_pago,
                      interes, observaciones):
-    """Register a payment (cuota)."""
     conn.execute(
         "INSERT INTO tbPagos "
         "(idSocio, FechadePago, FechaVencimineto, Importe, Saldo, "
@@ -206,7 +192,6 @@ def _register_cobro(conn, id_socio, id_plan, fecha_pago, venc_nuevo,
 
 
 def _anular_ultimo_cobro(conn, id_socio, usuario=""):
-    """Soft-delete the latest payment for a socio."""
     row = conn.execute(
         "SELECT idPago FROM tbPagos WHERE idSocio = ? "
         "AND (Eliminado IS NULL OR Eliminado != '1') "
@@ -231,74 +216,65 @@ class CambioVencimientoDialog(tk.Toplevel):
     def __init__(self, parent, socio_nombre, venc_actual_date):
         super().__init__(parent)
         self.title("Cambio de Vencimiento")
-        self.geometry("390x240")
+        self.geometry("400x250")
         self.resizable(False, False)
         self.configure(bg="#3B6FA0")
         self.transient(parent)
         self.grab_set()
-        self.result = None  # new date or None
+        self.result = None
 
         self.venc_actual = venc_actual_date
         hoy = datetime.date.today()
 
-        # Title bar
         tk.Label(
             self, text="Cambio de Vencimiento", bg="#3B6FA0", fg="#FFF",
-            font=("Helvetica", 12, "bold"),
+            font=("Helvetica", 13, "bold"),
         ).pack(fill="x", pady=(8, 4), padx=10, anchor="w")
 
-        # Panel
         panel = tk.Frame(self, bg=BG, relief="groove", bd=1)
         panel.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-        # Socio
         tk.Label(panel, text="Socio:", bg=BG, font=("Helvetica", 9, "bold"),
                  fg=FG_LABEL).place(x=10, y=12)
         tk.Label(panel, text=socio_nombre, bg=BG, font=("Helvetica", 10, "bold"),
                  fg=FG).place(x=100, y=12)
 
-        # Vencimiento actual
         tk.Label(panel, text="Vencimiento Actual:", bg=BG,
-                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=10, y=42)
+                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=10, y=44)
         venc_text = venc_actual_date.strftime("%d/%m/%Y") if venc_actual_date else "Sin vencimiento"
         tk.Label(panel, text=venc_text, bg=BG, font=("Helvetica", 10),
-                 fg=FG).place(x=140, y=42)
+                 fg=FG).place(x=140, y=44)
 
-        # Nuevo vencimiento — date entry
         tk.Label(panel, text="Nuevo Vencimiento:", bg=BG,
-                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=10, y=78)
-
+                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=10, y=80)
         self.date_var = tk.StringVar(value=hoy.strftime("%d/%m/%Y"))
         self.entry_date = tk.Entry(
             panel, textvariable=self.date_var,
             bg="#FFF", fg=FG, font=("Helvetica", 11),
             relief="solid", bd=1, width=15,
         )
-        self.entry_date.place(x=140, y=76)
+        self.entry_date.place(x=140, y=78)
 
-        # Hint
         tk.Label(panel, text="(formato: dd/mm/aaaa)", bg=BG,
-                 font=("Helvetica", 7), fg="#888").place(x=250, y=80)
+                 font=("Helvetica", 7), fg="#888").place(x=254, y=82)
 
-        # Minimum date hint
         if venc_actual_date:
             tk.Label(panel, text=f"Mínimo: {venc_actual_date.strftime('%d/%m/%Y')}",
-                     bg=BG, font=("Helvetica", 7), fg="#888").place(x=140, y=100)
+                     bg=BG, font=("Helvetica", 7), fg="#888").place(x=140, y=102)
 
-        # Buttons
         tk.Button(
             panel, text="Aceptar", bg=BTN_GREEN, fg="#FFF",
             font=("Helvetica", 9, "bold"), relief="flat",
             activebackground=BTN_GREEN_ACTIVE,
             command=self._accept,
-        ).place(x=100, y=140, width=90, height=30)
+        ).place(x=100, y=150, width=90, height=30)
 
         tk.Button(
             panel, text="Cancelar", bg=BTN_GREEN, fg="#FFF",
             font=("Helvetica", 9, "bold"), relief="flat",
             activebackground=BTN_GREEN_ACTIVE,
             command=self.destroy,
-        ).place(x=210, y=140, width=90, height=30)
+        ).place(x=210, y=150, width=90, height=30)
 
         self.bind("<Return>", lambda _: self._accept())
         self.bind("<Escape>", lambda _: self.destroy())
@@ -311,7 +287,6 @@ class CambioVencimientoDialog(tk.Toplevel):
             messagebox.showerror("Error", "Fecha inválida. Use formato dd/mm/aaaa.",
                                  parent=self)
             return
-
         if self.venc_actual and new_date < self.venc_actual:
             messagebox.showerror(
                 "Error",
@@ -320,7 +295,6 @@ class CambioVencimientoDialog(tk.Toplevel):
                 parent=self,
             )
             return
-
         self.result = new_date
         self.destroy()
 
@@ -337,44 +311,50 @@ class RegistrarCobrosWindow(tk.Toplevel):
         self.bind("<Escape>", lambda _: self.destroy())
 
         self.current_socio = None
-        self.new_venc_override = None  # manual override from CambioVencimiento
+        self.new_venc_override = None
 
         self._build()
 
     # ── Build ─────────────────────────────────────────────────────────────
 
     def _build(self):
+        LH = 22  # label/control height per row
+        LY = 8   # label x
+        IX = 125  # input x
+
         # === SEARCH BAR ===
-        frm_search = tk.Frame(self, bg=BG, height=40)
-        frm_search.pack(fill="x", padx=PAD, pady=(6, 4))
+        frm_search = tk.Frame(self, bg=BG, height=38)
+        frm_search.pack(fill="x", padx=PAD, pady=(4, 2))
         frm_search.pack_propagate(False)
 
         self.search_var = tk.StringVar()
         self.entry_search = tk.Entry(
             frm_search, textvariable=self.search_var,
-            bg="#FFFFFF", fg="#000000",
+            bg=SEARCH_BG, fg=SEARCH_FG,
             font=("Helvetica", 11, "bold"),
-            relief="solid", bd=1,
-            insertbackground="#000000",
+            relief="flat", bd=0,
+            insertbackground=SEARCH_FG,
         )
         self.entry_search.place(x=0, y=3, width=540, height=30)
         self.entry_search.bind("<Return>", lambda _: self._do_search())
 
         tk.Button(
             frm_search, text="\U0001F50D", font=("Helvetica", 14),
-            bg=BTN_BLUE, fg="#FFF", relief="flat",
-            activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
+            bg="#888", fg="#FFF", relief="flat",
+            activebackground="#666", activeforeground="#FFF",
             cursor="hand2", command=self._do_search,
         ).place(x=548, y=3, width=40, height=30)
 
         # === LEFT PANEL (55%) — Historial de Cobros ===
         left_w = int(W * 0.55)
+        tree_y0 = 44
+        tree_h = H - tree_y0 - 10
         frm_left = tk.LabelFrame(
             self, text=" Historial de Cobros ", bg=BG,
             font=("Helvetica", 9, "bold"), relief="groove", bd=1,
             labelanchor="nw",
         )
-        frm_left.place(x=PAD, y=48, width=left_w - PAD, height=H - 48 - 42)
+        frm_left.place(x=PAD, y=tree_y0, width=left_w - PAD, height=tree_h)
 
         cols = ("nombre", "documento", "fecha_cobro", "vencimiento",
                 "importe", "saldo", "descuento", "motivo", "obs")
@@ -383,13 +363,13 @@ class RegistrarCobrosWindow(tk.Toplevel):
         )
         hdrs = ["Nombre Completo", "Documento", "Fecha Cobro", "Vencimiento",
                 "Importe Cobrado", "Saldo", "Descuento", "Motivo Dto", "Observaciones"]
-        widths = [160, 80, 95, 95, 90, 70, 70, 90, 120]
+        widths = [180, 85, 100, 100, 95, 75, 75, 100, 130]
         for c, h, w in zip(cols, hdrs, widths):
             self.tree.heading(c, text=h)
             self.tree.column(c, width=w, minwidth=30, anchor="w")
 
         style = ttk.Style(self)
-        style.configure("C.Treeview", rowheight=20, font=("Helvetica", 8),
+        style.configure("C.Treeview", rowheight=22, font=("Helvetica", 8),
                         background="#FFF", fieldbackground="#FFF")
         style.configure("C.Treeview.Heading", font=("Helvetica", 8, "bold"))
         style.map("C.Treeview",
@@ -408,201 +388,199 @@ class RegistrarCobrosWindow(tk.Toplevel):
         right_x = left_w + 4
         right_w = W - left_w - PAD - 4
         frm_right = tk.Frame(self, bg=BG)
-        frm_right.place(x=right_x, y=48, width=right_w, height=H - 48 - 42)
+        frm_right.place(x=right_x, y=tree_y0, width=right_w, height=tree_h)
 
-        # --- Socio Info (top right) ---
+        # --- Información del Socio (top right) ---
+        info_h = 130
         frm_info = tk.LabelFrame(
             frm_right, text=" Información del Socio ", bg=BG,
             font=("Helvetica", 9, "bold"), relief="groove", bd=1,
             labelanchor="nw",
         )
-        frm_info.place(x=0, y=0, relwidth=1.0, height=120)
+        frm_info.place(x=0, y=0, relwidth=1.0, height=info_h)
 
         self.lbl_nombre = tk.Label(frm_info, text="", bg=BG,
-                                    font=("Helvetica", 13, "bold"), fg=FG)
+                                    font=("Helvetica", 14, "bold"), fg=FG)
         self.lbl_nombre.place(x=10, y=6)
 
         self.lbl_dni = tk.Label(frm_info, text="", bg=BG,
-                                 font=("Helvetica", 11, "bold"), fg=FG_LABEL)
-        self.lbl_dni.place(x=10, y=32)
+                                 font=("Helvetica", 12, "bold"), fg=FG_LABEL)
+        self.lbl_dni.place(x=10, y=36)
 
         self.lbl_plan = tk.Label(frm_info, text="", bg=BG,
                                   font=("Helvetica", 10), fg=FG_LABEL)
-        self.lbl_plan.place(x=10, y=56)
+        self.lbl_plan.place(x=10, y=62)
 
         self.lbl_precio = tk.Label(frm_info, text="", bg=BG,
-                                    font=("Helvetica", 10, "bold"), fg=FG_GREEN)
-        self.lbl_precio.place(x=10, y=76)
+                                    font=("Helvetica", 11, "bold"), fg=FG_GREEN)
+        self.lbl_precio.place(x=10, y=82)
 
         self.lbl_ultimo_pago = tk.Label(frm_info, text="", bg=BG,
-                                         font=("Helvetica", 9), fg=FG_LABEL)
-        self.lbl_ultimo_pago.place(x=10, y=96)
+                                         font=("Helvetica", 10), fg=FG_LABEL)
+        self.lbl_ultimo_pago.place(x=10, y=106)
 
-        # --- Deuda warning ---
         self.lbl_deuda = tk.Label(frm_info, text="", bg=BG,
-                                   font=("Helvetica", 9, "bold"), fg=FG_WARN)
-        self.lbl_deuda.place(x=300, y=56)
+                                   font=("Helvetica", 10, "bold"), fg=FG_WARN)
+        self.lbl_deuda.place(x=340, y=62)
 
-        # --- Datos del Cobro (bottom right) ---
+        # --- Datos del Cobro (below socio info) ---
         frm_cobro = tk.LabelFrame(
             frm_right, text=" Datos del Cobro ", bg=BG,
             font=("Helvetica", 9, "bold"), relief="groove", bd=1,
             labelanchor="nw",
         )
-        frm_cobro.place(x=0, y=126, relwidth=1.0, relheight=1.0)
+        frm_cobro.place(x=0, y=info_h + 4, relwidth=1.0, relheight=1.0)
 
         y = 10
-        lh = 22  # label height
 
         # Fecha de Cobro
         tk.Label(frm_cobro, text="Fecha de Cobro:", bg=BG,
-                 font=("Helvetica", 8, "bold"), fg=FG_LABEL).place(x=8, y=y)
+                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=LY, y=y)
         self.fecha_var = tk.StringVar(value=datetime.date.today().strftime("%d/%m/%Y"))
         self.entry_fecha = tk.Entry(
             frm_cobro, textvariable=self.fecha_var,
             bg="#FFF", fg=FG, font=("Helvetica", 9),
-            relief="solid", bd=1, width=12,
+            relief="solid", bd=1,
         )
-        self.entry_fecha.place(x=120, y=y, width=100, height=lh)
+        self.entry_fecha.place(x=IX, y=y, width=100, height=LH)
         self.entry_fecha.bind("<FocusOut>", lambda _: self._recalc())
-        y += 26
+        y += 28
 
         # Importe Total
         tk.Label(frm_cobro, text="Importe Total:", bg=BG,
-                 font=("Helvetica", 8, "bold"), fg=FG_LABEL).place(x=8, y=y)
+                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=LY, y=y)
         self.lbl_importe = tk.Label(frm_cobro, text="$0", bg=BG,
                                      font=("Helvetica", 9, "bold"), fg=FG)
-        self.lbl_importe.place(x=120, y=y)
-        y += 22
+        self.lbl_importe.place(x=IX, y=y)
+        y += 28
 
         # Descuento
         tk.Label(frm_cobro, text="Descuento:", bg=BG,
-                 font=("Helvetica", 8, "bold"), fg=FG_LABEL).place(x=8, y=y)
+                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=LY, y=y)
         self.desc_var = tk.StringVar(value="0")
         self.entry_desc = tk.Entry(
             frm_cobro, textvariable=self.desc_var,
             bg="#FFF", fg=FG, font=("Helvetica", 9),
-            relief="solid", bd=1, width=10,
+            relief="solid", bd=1,
         )
-        self.entry_desc.place(x=120, y=y, width=80, height=lh)
+        self.entry_desc.place(x=IX, y=y, width=80, height=LH)
         self.entry_desc.bind("<FocusOut>", lambda _: self._recalc())
         self.entry_desc.bind("<KeyRelease>", lambda _: self._recalc())
-        y += 22
+        y += 28
 
         # Motivo Descuento
         tk.Label(frm_cobro, text="Motivo Dto:", bg=BG,
-                 font=("Helvetica", 8, "bold"), fg=FG_LABEL).place(x=8, y=y)
+                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=LY, y=y)
         self.motivo_var = tk.StringVar()
         self.entry_motivo = tk.Entry(
             frm_cobro, textvariable=self.motivo_var,
             bg="#FFF", fg=FG, font=("Helvetica", 9),
             relief="solid", bd=1,
         )
-        self.entry_motivo.place(x=120, y=y, width=200, height=lh)
-        y += 22
+        self.entry_motivo.place(x=IX, y=y, width=240, height=LH)
+        y += 28
 
         # Importe Final
         tk.Label(frm_cobro, text="Importe Final:", bg=BG,
-                 font=("Helvetica", 8, "bold"), fg=FG_LABEL).place(x=8, y=y)
+                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=LY, y=y)
         self.lbl_final = tk.Label(frm_cobro, text="$0", bg=BG,
                                    font=("Helvetica", 9, "bold"), fg=FG)
-        self.lbl_final.place(x=120, y=y)
-        y += 24
+        self.lbl_final.place(x=IX, y=y)
+        y += 28
 
         # Tipo de Pago
         tk.Label(frm_cobro, text="Tipo de Pago:", bg=BG,
-                 font=("Helvetica", 8, "bold"), fg=FG_LABEL).place(x=8, y=y)
+                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=LY, y=y)
         self.tipo_var = tk.StringVar(value="EFECTIVO")
         self.combo_tipo = ttk.Combobox(
             frm_cobro, textvariable=self.tipo_var,
             values=TIPOS_PAGO, state="readonly", width=18,
         )
-        self.combo_tipo.place(x=120, y=y)
-        y += 26
+        self.combo_tipo.place(x=IX, y=y)
+        y += 28
 
         # Interés
         tk.Label(frm_cobro, text="Interés ($):", bg=BG,
-                 font=("Helvetica", 8, "bold"), fg=FG_LABEL).place(x=8, y=y)
+                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=LY, y=y)
         self.interes_var = tk.StringVar(value="0")
         self.entry_interes = tk.Entry(
             frm_cobro, textvariable=self.interes_var,
             bg="#FFF", fg=FG, font=("Helvetica", 9),
-            relief="solid", bd=1, width=10,
+            relief="solid", bd=1,
         )
-        self.entry_interes.place(x=120, y=y, width=80, height=lh)
+        self.entry_interes.place(x=IX, y=y, width=80, height=LH)
         self.entry_interes.bind("<KeyRelease>", lambda _: self._recalc())
-        y += 22
+        y += 28
 
         # Entrega
         tk.Label(frm_cobro, text="Entrega:", bg=BG,
-                 font=("Helvetica", 8, "bold"), fg=FG_LABEL).place(x=8, y=y)
-        self.entrega_var = tk.StringVar(value="0")
+                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=LY, y=y)
+        self.entrega_var = tk.StringVar(value="")
         self.entry_entrega = tk.Entry(
             frm_cobro, textvariable=self.entrega_var,
             bg="#FFF", fg=FG, font=("Helvetica", 9),
-            relief="solid", bd=1, width=10,
+            relief="solid", bd=1,
         )
-        self.entry_entrega.place(x=120, y=y, width=80, height=lh)
+        self.entry_entrega.place(x=IX, y=y, width=80, height=LH)
         self.entry_entrega.bind("<KeyRelease>", lambda _: self._recalc())
-        y += 22
+        y += 28
 
         # Saldo
         tk.Label(frm_cobro, text="Saldo:", bg=BG,
-                 font=("Helvetica", 8, "bold"), fg=FG_LABEL).place(x=8, y=y)
+                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=LY, y=y)
         self.lbl_saldo = tk.Label(frm_cobro, text="$0", bg=BG,
                                    font=("Helvetica", 9, "bold"), fg=FG)
-        self.lbl_saldo.place(x=120, y=y)
-        y += 24
+        self.lbl_saldo.place(x=IX, y=y)
+        y += 28
 
         # Observaciones
         tk.Label(frm_cobro, text="Observaciones:", bg=BG,
-                 font=("Helvetica", 8, "bold"), fg=FG_LABEL).place(x=8, y=y)
+                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=LY, y=y)
         self.obs_var = tk.StringVar()
         self.entry_obs = tk.Entry(
             frm_cobro, textvariable=self.obs_var,
             bg="#FFF", fg=FG, font=("Helvetica", 9),
             relief="solid", bd=1,
         )
-        self.entry_obs.place(x=120, y=y, width=200, height=lh)
-        y += 28
+        self.entry_obs.place(x=IX, y=y, width=380, height=LH)
+        y += 34
 
-        # --- Vencimientos ---
+        # --- Vencimientos (horizontal: label+value, button at right) ---
         frm_venc = tk.Frame(frm_cobro, bg=BG)
-        frm_venc.place(x=8, y=y, relwidth=1.0, height=60)
+        frm_venc.place(x=LY, y=y, relwidth=1.0, height=54)
 
         tk.Label(frm_venc, text="Vencimiento Actual:", bg=BG,
-                 font=("Helvetica", 8, "bold"), fg=FG_LABEL).grid(row=0, column=0, sticky="w")
+                 font=("Helvetica", 10, "bold"), fg=FG_LABEL).grid(
+            row=0, column=0, sticky="w", pady=3)
         self.lbl_venc_actual = tk.Label(frm_venc, text="", bg=BG,
-                                         font=("Helvetica", 9), fg=FG)
-        self.lbl_venc_actual.grid(row=0, column=1, sticky="w", padx=(5, 0))
+                                         font=("Helvetica", 11), fg=FG)
+        self.lbl_venc_actual.grid(row=0, column=1, sticky="w", padx=(8, 0), pady=3)
 
         tk.Label(frm_venc, text="Vencimiento Nuevo:", bg=BG,
-                 font=("Helvetica", 8, "bold"), fg=FG_LABEL).grid(row=1, column=0, sticky="w")
+                 font=("Helvetica", 10, "bold"), fg=FG_LABEL).grid(
+            row=1, column=0, sticky="w", pady=3)
         self.lbl_venc_nuevo = tk.Label(frm_venc, text="", bg=BG,
-                                        font=("Helvetica", 9, "bold"), fg=FG_GREEN)
-        self.lbl_venc_nuevo.grid(row=1, column=1, sticky="w", padx=(5, 0))
+                                        font=("Helvetica", 11, "bold"), fg=FG_GREEN)
+        self.lbl_venc_nuevo.grid(row=1, column=1, sticky="w", padx=(8, 0), pady=3)
 
         self.btn_cambiar_venc = tk.Button(
             frm_venc, text="Cambiar\nVencimiento", bg=BTN_BLUE, fg="#FFF",
-            font=("Helvetica", 7, "bold"), relief="flat",
+            font=("Helvetica", 8, "bold"), relief="flat",
             activebackground=BTN_BLUE_ACTIVE, cursor="hand2",
             command=self._open_cambio_venc, state="disabled",
         )
-        self.btn_cambiar_venc.grid(row=0, column=2, rowspan=2, padx=(15, 0), sticky="ns")
-
-        y += 64
+        self.btn_cambiar_venc.grid(row=0, column=2, rowspan=2, padx=(20, 0),
+                                    sticky="ns", ipadx=8, ipady=4)
 
         # === BOTTOM BAR ===
-        bar = tk.Frame(self, bg=BG, height=38)
-        bar.place(x=0, y=H - 40, relwidth=1.0, height=40)
+        bar_h = 46
+        bar = tk.Frame(self, bg=BG, height=bar_h)
+        bar.place(x=0, y=H - bar_h, relwidth=1.0, height=bar_h)
 
-        self.btn_cobrar = tk.Button(
-            bar, text="COBRAR", bg=BTN_BLUE, fg="#FFF",
-            font=("Helvetica", 11, "bold"), relief="flat",
-            activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
-            cursor="hand2", command=self._on_cobrar,
-        )
-        self.btn_cobrar.place(x=W - 320, y=4, width=120, height=32)
+        btn_w = 130
+        btn_h = 36
+        btn_y = 6
+        gap = 12
 
         self.btn_anular = tk.Button(
             bar, text="ANULAR COBROS", bg=BTN_BLUE, fg="#FFF",
@@ -610,11 +588,24 @@ class RegistrarCobrosWindow(tk.Toplevel):
             activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
             cursor="hand2", command=self._on_anular,
         )
-        self.btn_anular.place(x=W - 190, y=4, width=130, height=32)
+        self.btn_anular.place(x=W - btn_w * 2 - gap - PAD, y=btn_y,
+                               width=btn_w, height=btn_h)
+
+        self.btn_cobrar = tk.Button(
+            bar, text="COBRAR", bg=BTN_BLUE, fg="#FFF",
+            font=("Helvetica", 11, "bold"), relief="flat",
+            activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
+            cursor="hand2", command=self._on_cobrar,
+        )
+        self.btn_cobrar.place(x=W - btn_w - PAD, y=btn_y,
+                               width=btn_w, height=btn_h)
 
         tk.Button(
-            bar, text="Salir", width=8, command=self.destroy,
-        ).place(x=PAD, y=4)
+            bar, text="Salir", bg="#999", fg="#FFF",
+            font=("Helvetica", 8, "bold"), relief="flat",
+            activebackground="#777", activeforeground="#FFF",
+            cursor="hand2", command=self.destroy,
+        ).place(x=W - 80, y=btn_y + btn_h + 2, width=70, height=26)
 
     # ── Search ────────────────────────────────────────────────────────────
 
@@ -698,29 +689,23 @@ class RegistrarCobrosWindow(tk.Toplevel):
         self.lbl_ultimo_pago.configure(
             text=f"Último Pago: {ultimo}" if ultimo else "Último Pago: (ninguno)")
 
-        # Deuda warning
         deudas = s.get("_deudas", 0)
         if deudas > 0:
             self.lbl_deuda.configure(
-                text=f"⚠ ATENCIÓN: Deuda pendiente: ${deudas:,.0f}",
-                fg=FG_WARN)
+                text=f"⚠ ATENCIÓN\nDeuda pendiente: ${deudas:,.0f}")
         else:
             self.lbl_deuda.configure(text="")
 
-        # Vencimiento actual
         venc_raw = s.get("_vencimiento")
         venc_date = _parse_date(venc_raw)
         venc_text = venc_date.strftime("%d/%m/%Y") if venc_date else "Sin vencimiento"
         self.lbl_venc_actual.configure(text=venc_text)
 
-        # Calculate new vencimiento
         hoy = datetime.date.today()
         new_venc = _calc_new_vencimiento(venc_date, hoy)
         self.lbl_venc_nuevo.configure(text=new_venc.strftime("%d/%m/%Y"))
-
         self.btn_cambiar_venc.configure(state="normal")
 
-        # Payment history
         self.tree.delete(*self.tree.get_children())
         for p in s.get("_historial", []):
             nom = f"{(p.get('Apellidos') or '').upper()}, {(p.get('Nombres') or '').upper()}"
@@ -749,23 +734,25 @@ class RegistrarCobrosWindow(tk.Toplevel):
 
         descuento = _safe_float(self.desc_var.get())
         interes = _safe_float(self.interes_var.get())
-        entrega = _safe_float(self.entrega_var.get())
+        entrega_str = self.entrega_var.get().strip()
 
         importe_final = max(precio - descuento + interes, 0)
-        saldo = entrega - importe_final
+
+        if entrega_str:
+            entrega = _safe_float(entrega_str)
+            saldo = entrega - importe_final
+            saldo_color = FG_GREEN if saldo >= 0 else FG_RED
+            self.lbl_saldo.configure(text=f"${saldo:,.0f}", fg=saldo_color)
+        else:
+            self.lbl_saldo.configure(text="$0", fg=FG)
 
         self.lbl_importe.configure(text=f"${precio:,.0f}")
         self.lbl_final.configure(text=f"${importe_final:,.0f}")
 
-        saldo_color = FG_GREEN if saldo >= 0 else FG_RED
-        self.lbl_saldo.configure(text=f"${saldo:,.0f}", fg=saldo_color)
-
-        # Recalc new vencimiento
         venc_date = None
         if self.current_socio:
             venc_date = _parse_date(self.current_socio.get("_vencimiento"))
 
-        # Parse payment date
         hoy = datetime.date.today()
         try:
             parts = self.fecha_var.get().split("/")
@@ -777,7 +764,6 @@ class RegistrarCobrosWindow(tk.Toplevel):
             new_venc = self.new_venc_override
         else:
             new_venc = _calc_new_vencimiento(venc_date, fecha_pago)
-
         self.lbl_venc_nuevo.configure(text=new_venc.strftime("%d/%m/%Y"))
 
     # ── Cambio Vencimiento ────────────────────────────────────────────────
@@ -795,6 +781,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
         if dlg.result:
             self.new_venc_override = dlg.result
             self.lbl_venc_nuevo.configure(text=dlg.result.strftime("%d/%m/%Y"))
+            self._recalc()
 
     # ── Cobrar ────────────────────────────────────────────────────────────
 
@@ -805,7 +792,6 @@ class RegistrarCobrosWindow(tk.Toplevel):
 
         s = self.current_socio
 
-        # Validate descuento motivo
         descuento = _safe_float(self.desc_var.get())
         if descuento > 0 and not self.motivo_var.get().strip():
             messagebox.showwarning(
@@ -813,7 +799,6 @@ class RegistrarCobrosWindow(tk.Toplevel):
                 "Si aplica descuento, debe indicar el motivo.")
             return
 
-        # Parse fecha
         try:
             parts = self.fecha_var.get().split("/")
             fecha_pago = datetime.date(int(parts[2]), int(parts[1]), int(parts[0]))
@@ -821,7 +806,6 @@ class RegistrarCobrosWindow(tk.Toplevel):
             messagebox.showerror("Error", "Fecha de cobro inválida.")
             return
 
-        # Calculate vencimiento
         venc_date = _parse_date(s.get("_vencimiento"))
         venc_nuevo = self.new_venc_override or _calc_new_vencimiento(venc_date, fecha_pago)
 
@@ -834,7 +818,6 @@ class RegistrarCobrosWindow(tk.Toplevel):
         obs = self.obs_var.get().strip()
         tipo = self.tipo_var.get()
 
-        # Confirm
         msg = (
             f"Socio: {nombre}\n"
             f"Plan: {s.get('_plan_nom', '')} - {s.get('_plan_desc', '')}\n"
