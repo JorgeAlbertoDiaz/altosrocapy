@@ -36,6 +36,9 @@ MODULES = [
 
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "..", "temps", "logo.png")
 
+# Set by on_logout; consumed in main() after the mainloop ends.
+_logout_requested = False
+
 
 def center_window(window: tk.Wm) -> None:
     window.update_idletasks()
@@ -77,8 +80,11 @@ def build_topbar(window: tk.Tk, usuario: str) -> None:
     logout.pack(side="right", padx=10)
 
     def on_logout(_event=None):
+        # Do not chain windows from inside the callback: just mark logout
+        # and close. main() shows the login window once the mainloop ends.
+        global _logout_requested
+        _logout_requested = True
         window.destroy()
-        login.main()
 
     logout.bind("<Button-1>", on_logout)
 
@@ -171,12 +177,19 @@ def build_principal(window: tk.Tk, usuario: str) -> None:
 
 
 def main(usuario: str) -> None:
+    global _logout_requested
+    _logout_requested = False
     window = tk.Tk()
     build_principal(window, usuario)
     window.protocol("WM_DELETE_WINDOW", window.destroy)
     window.mainloop()
-    # Ensure the process (and the PyInstaller onefile parent) dies cleanly.
-    sys.exit(0)
+    if _logout_requested:
+        # Principal is gone -> login must be visible (mandatory rule).
+        _logout_requested = False
+        login.main()
+    else:
+        # Ensure the process (and the PyInstaller onefile parent) dies cleanly.
+        sys.exit(0)
 
 
 if __name__ == "__main__":

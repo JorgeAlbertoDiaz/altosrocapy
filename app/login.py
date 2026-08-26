@@ -13,10 +13,8 @@ except ImportError:  # dev / frozen fallback
 
 try:
     from app import principal
-    from app import acceso_socios
 except ImportError:  # dev / frozen fallback
     import principal
-    import acceso_socios
 
 WINDOW_WIDTH = 730
 WINDOW_HEIGHT = 330
@@ -223,9 +221,6 @@ def main() -> None:
     window = tk.Tk()
     center_window(window)
     build_login(window)
-    # Acceso Socios lives independently of the admin session: available
-    # before login and re-created after logout (it dies with this root).
-    acceso_socios.open_window(window)
     window.protocol("WM_DELETE_WINDOW", window.destroy)
     window.mainloop()
     # Ensure the process (and the PyInstaller onefile parent) dies cleanly.
