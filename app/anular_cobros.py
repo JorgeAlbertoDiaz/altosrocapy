@@ -126,6 +126,14 @@ class AnularCobrosWindow(tk.Toplevel):
         if socio_id:
             self._load_socio_by_id(socio_id)
 
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _on_close(self):
+        parent = self.master
+        self.destroy()
+        if parent and parent.winfo_exists():
+            parent.after(50, lambda: (parent.lift(), parent.focus_force()))
+
     # ── Build ─────────────────────────────────────────────────────────────
 
     def _build(self):
@@ -182,11 +190,11 @@ class AnularCobrosWindow(tk.Toplevel):
         self.tree = ttk.Treeview(
             frm_grid, columns=cols, show="headings", selectmode="browse",
         )
-        self.tree.heading("idPago", text="idPago", font=("Helvetica", 8, "bold"))
-        self.tree.heading("importe", text="Importe", font=("Helvetica", 8, "bold"))
-        self.tree.heading("vencimiento", text="Vencimiento", font=("Helvetica", 8, "bold"))
-        self.tree.heading("fecha_pago", text="Fecha de Pago", font=("Helvetica", 8, "bold"))
-        self.tree.heading("obs", text="Observaciones", font=("Helvetica", 8, "bold"))
+        self.tree.heading("idPago", text="idPago")
+        self.tree.heading("importe", text="Importe")
+        self.tree.heading("vencimiento", text="Vencimiento")
+        self.tree.heading("fecha_pago", text="Fecha de Pago")
+        self.tree.heading("obs", text="Observaciones")
 
         self.tree.column("idPago", width=80, minwidth=60, anchor="center")
         self.tree.column("importe", width=100, minwidth=70, anchor="e")
@@ -278,6 +286,7 @@ class AnularCobrosWindow(tk.Toplevel):
             vals = tree.item(sel[0], "values")
             picker.destroy()
             self._load_socio_by_id(str(vals[0]))
+            self.after(50, lambda: (self.lift(), self.focus_force()))
 
         tk.Button(picker, text="Seleccionar", bg=BTN_BLUE, fg="#FFF",
                   font=("Helvetica", 9, "bold"), relief="flat",
@@ -349,6 +358,7 @@ class AnularCobrosWindow(tk.Toplevel):
             confirm.destroy()
             _delete_pago(id_pago)
             self._refresh()
+            self.after(50, lambda: (self.lift(), self.focus_force()))
 
         tk.Button(
             confirm, text="Aceptar", bg="#888", fg="#FFF",

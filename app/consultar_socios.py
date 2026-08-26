@@ -536,6 +536,7 @@ class ConsultarSociosWindow(tk.Toplevel):
             vals = tree.item(sel[0], "values")
             picker.destroy()
             self._load_and_show(str(vals[0]))
+            self.after(50, lambda: (self.lift(), self.focus_force()))
 
         tk.Button(
             picker, text="Seleccionar", bg=BTN_BLUE, fg="#FFF",

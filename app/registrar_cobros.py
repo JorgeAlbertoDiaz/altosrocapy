@@ -676,6 +676,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
             vals = tree.item(sel[0], "values")
             picker.destroy()
             self._load_socio(str(vals[0]))
+            self.after(50, lambda: (self.lift(), self.focus_force()))
 
         tk.Button(picker, text="Seleccionar", bg=BTN_BLUE, fg="#FFF",
                   font=("Helvetica", 9, "bold"), relief="flat",
@@ -802,6 +803,8 @@ class RegistrarCobrosWindow(tk.Toplevel):
             self.lbl_venc_nuevo.configure(text=dlg.result.strftime("%d/%m/%Y"))
             self._recalc()
 
+        self.after(50, lambda: (self.lift(), self.focus_force()))
+
     # ── Cobrar ────────────────────────────────────────────────────────────
 
     def _on_cobrar(self):
@@ -886,7 +889,8 @@ class RegistrarCobrosWindow(tk.Toplevel):
 def open_window(parent=None, socio_id=None):
     w = RegistrarCobrosWindow(parent)
     if socio_id is not None:
-        w.after(100, lambda: w._load_socio(str(socio_id)))
+        w.update_idletasks()
+        w.after(50, lambda sid=str(socio_id): w._load_socio(sid))
     return w
 
 
