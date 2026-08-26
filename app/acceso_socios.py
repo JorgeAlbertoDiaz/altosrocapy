@@ -9,10 +9,12 @@ import tkinter.font as tkfont
 try:
     from app import db
     from app import simclock
+    from app import consultar_socios
     from app.resources import get_logo_path, apply_app_icon
 except ImportError:
     import db
     import simclock
+    import consultar_socios
     from resources import get_logo_path, apply_app_icon
 
 WINDOW_WIDTH = 800
@@ -299,26 +301,9 @@ class AccesoSociosWindow(tk.Toplevel):
         self.state = "waiting"
 
     def _open_consultar_socios(self):
-        top = tk.Toplevel(self)
-        top.title("Consultar Socios")
-        top.geometry("900x600")
-        top.configure(bg="#F0F0F0")
-        top.bind("<Escape>", lambda _e: top.destroy())
-        tk.Label(
-            top, text="[Módulo en construcción]",
-            bg="#F0F0F0", fg="#333333", font=("Helvetica", 14),
-        ).place(relx=0.5, rely=0.48, anchor="center")
         socio = self.current_socio
-        detalle = (
-            f"Socio actual: #{socio['idSocio']} - "
-            f"{(socio['Apellidos'] or '').upper()}, {(socio['Nombres'] or '').upper()}"
-            if socio
-            else "Socio actual: (ninguno)"
-        )
-        tk.Label(
-            top, text=detalle,
-            bg="#F0F0F0", fg="#555555", font=("Helvetica", 11),
-        ).place(relx=0.5, rely=0.56, anchor="center")
+        socio_id = socio["idSocio"] if socio else None
+        consultar_socios.open_window(self, socio_id=socio_id)
 
     def _hide(self):
         """Hide the window and hand focus back to its owner window.
