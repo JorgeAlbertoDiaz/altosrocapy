@@ -2,14 +2,16 @@
 
 import datetime
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 
 try:
     from app import db
     from app import simclock
+    from app import exporter
 except ImportError:
     import db
     import simclock
+    import exporter
 
 try:
     from tkcalendar import DateEntry
@@ -380,11 +382,9 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
         bar.pack_propagate(False)
 
         tk.Button(bar, text="Exportar a Excel", width=14,
-                  command=lambda: messagebox.showinfo("Exportar", "Próximamente")
-                  ).place(x=10, y=6)
+                  command=lambda: self._export("excel")).place(x=10, y=6)
         tk.Button(bar, text="Exportar a PDF", width=14,
-                  command=lambda: messagebox.showinfo("Exportar", "Próximamente")
-                  ).place(x=160, y=6)
+                  command=lambda: self._export("pdf")).place(x=160, y=6)
 
         self.lbl_count = tk.Label(bar, text="Socios: 0", bg=BG,
                                   font=("Helvetica", 10, "bold"), fg=FG)
@@ -392,6 +392,30 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
 
         tk.Button(bar, text="Salir", width=10,
                   command=self.destroy).place(x=860, y=6)
+
+    def _export(self, kind: str):
+        if not self.tree.get_children():
+            messagebox.showwarning("Exportar", "No hay datos para exportar")
+            return
+        if kind == "excel":
+            filepath = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Excel", "*.xlsx")],
+                initialfile="estados_socios.xlsx")
+        else:
+            filepath = filedialog.asksaveasfilename(
+                defaultextension=".pdf",
+                filetypes=[("PDF", "*.pdf")],
+                initialfile="estados_socios.pdf")
+        if not filepath:
+            return
+        try:
+            count = (exporter.export_excel(self.tree, filepath) if kind == "excel"
+                     else exporter.export_pdf(self.tree, filepath))
+        except Exception as exc:
+            messagebox.showerror("Exportar", f"No se pudo exportar:\n{exc}")
+            return
+        messagebox.showinfo("Exportar", f"{count} socios exportados a:\n{filepath}")
 
     def _load_plans(self):
         conn = db.get_connection()
