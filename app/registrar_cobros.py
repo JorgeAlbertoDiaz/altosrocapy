@@ -634,7 +634,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
             return
         results = _search_socios(query)
         if not results:
-            messagebox.showinfo("Búsqueda", "No se encontraron socios.")
+            messagebox.showinfo("Búsqueda", "No se encontraron socios.", parent=self)
             return
         if len(results) == 1:
             self._load_socio(results[0]["idSocio"])
@@ -688,7 +688,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
     def _load_socio(self, id_socio):
         data = _load_cobro_data(id_socio)
         if data is None:
-            messagebox.showinfo("Error", "Socio no encontrado.")
+            messagebox.showinfo("Error", "Socio no encontrado.", parent=self)
             return
         self.current_socio = data
         self.new_venc_override = None
@@ -809,7 +809,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
 
     def _on_cobrar(self):
         if not self.current_socio:
-            messagebox.showinfo("Cobrar", "No hay socio seleccionado.")
+            messagebox.showinfo("Cobrar", "No hay socio seleccionado.", parent=self)
             return
 
         s = self.current_socio
@@ -818,14 +818,14 @@ class RegistrarCobrosWindow(tk.Toplevel):
         if descuento > 0 and not self.motivo_var.get().strip():
             messagebox.showwarning(
                 "Descuento",
-                "Si aplica descuento, debe indicar el motivo.")
+                "Si aplica descuento, debe indicar el motivo.", parent=self)
             return
 
         try:
             parts = self.fecha_var.get().split("/")
             fecha_pago = datetime.date(int(parts[2]), int(parts[1]), int(parts[0]))
         except (ValueError, IndexError):
-            messagebox.showerror("Error", "Fecha de cobro inválida.")
+            messagebox.showerror("Error", "Fecha de cobro inválida.", parent=self)
             return
 
         venc_date = _parse_date(s.get("_vencimiento"))
@@ -855,7 +855,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
         msg += f"Nuevo Vencimiento: {venc_nuevo.strftime('%d/%m/%Y')}\n\n"
         msg += "¿Confirmar cobro?"
 
-        if not messagebox.askyesno("Confirmar Cobro", msg):
+        if not messagebox.askyesno("Confirmar Cobro", msg, parent=self):
             return
 
         try:
@@ -867,13 +867,13 @@ class RegistrarCobrosWindow(tk.Toplevel):
                 tipo, interes, obs,
             )
         except Exception as e:
-            messagebox.showerror("Error", f"Error al registrar cobro: {e}")
+            messagebox.showerror("Error", f"Error al registrar cobro: {e}", parent=self)
             return
         finally:
             conn.close()
 
         self._load_socio(s["idSocio"])
-        messagebox.showinfo("Cobro", "Cobro registrado exitosamente.")
+        messagebox.showinfo("Cobro", "Cobro registrado exitosamente.", parent=self)
 
     # ── Anular ────────────────────────────────────────────────────────────
 
@@ -881,9 +881,12 @@ class RegistrarCobrosWindow(tk.Toplevel):
         if not self.current_socio:
             return
         s = self.current_socio
-        # Open anular_cobros window pre-filled with current socio
+        sid = s["idSocio"]
         from app import anular_cobros
-        anular_cobros.open_window(self, socio_id=s["idSocio"])
+        anular_cobros.open_window(
+            self, socio_id=sid,
+            on_deleted=lambda: self.after(100, lambda: self._load_socio(sid)),
+        )
 
 
 def open_window(parent=None, socio_id=None):

@@ -483,7 +483,7 @@ class ConsultarSociosWindow(tk.Toplevel):
 
         results = _search_socios(query)
         if not results:
-            messagebox.showinfo("Búsqueda", "No se encontraron socios.")
+            messagebox.showinfo("Búsqueda", "No se encontraron socios.", parent=self)
             return
 
         if len(results) == 1:
@@ -552,7 +552,7 @@ class ConsultarSociosWindow(tk.Toplevel):
     def _load_and_show(self, id_socio):
         socio = _load_socio_full(id_socio)
         if socio is None:
-            messagebox.showinfo("Error", "Socio no encontrado.")
+            messagebox.showinfo("Error", "Socio no encontrado.", parent=self)
             return
         self.current_socio = socio
         self._populate(socio)
@@ -683,7 +683,7 @@ class ConsultarSociosWindow(tk.Toplevel):
     def _on_pagar(self):
         """Open Registrar Cobros for current socio."""
         if not self.current_socio:
-            messagebox.showinfo("Pagar", "No hay socio seleccionado.")
+            messagebox.showinfo("Pagar", "No hay socio seleccionado.", parent=self)
             return
 
         s = self.current_socio
@@ -691,12 +691,15 @@ class ConsultarSociosWindow(tk.Toplevel):
             from app import registrar_cobros
         except ImportError:
             import registrar_cobros
-        registrar_cobros.open_window(self, socio_id=s["idSocio"])
+        win = registrar_cobros.open_window(self, socio_id=s["idSocio"])
+        self.wait_window(win)
+        if self.current_socio:
+            self._load_and_show(self.current_socio["idSocio"])
 
     def _on_registrar_ingreso(self):
         """Register manual access."""
         if not self.current_socio:
-            messagebox.showinfo("Registrar Ingreso", "No hay socio seleccionado.")
+            messagebox.showinfo("Registrar Ingreso", "No hay socio seleccionado.", parent=self)
             return
 
         s = self.current_socio
@@ -705,6 +708,7 @@ class ConsultarSociosWindow(tk.Toplevel):
         if not messagebox.askyesno(
             "Confirmar Ingreso",
             f"Registrar acceso manual para:\n{nombre}\n\n¿Continuar?",
+            parent=self,
         ):
             return
 
@@ -712,14 +716,14 @@ class ConsultarSociosWindow(tk.Toplevel):
             conn = db.get_connection()
             _register_acceso(conn, s["idSocio"], s["id_Plan"])
         except Exception as e:
-            messagebox.showerror("Error", f"Error al registrar ingreso: {e}")
+            messagebox.showerror("Error", f"Error al registrar ingreso: {e}", parent=self)
             return
         finally:
             conn.close()
 
         # Reload
         self._load_and_show(s["idSocio"])
-        messagebox.showinfo("Ingreso", "Acceso registrado exitosamente.")
+        messagebox.showinfo("Ingreso", "Acceso registrado exitosamente.", parent=self)
 
 
 def open_window(parent=None, socio_id=None):

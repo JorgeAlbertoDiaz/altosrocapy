@@ -1,7 +1,6 @@
-"""Anular Cobros — eliminación física de pagos de cuotas.
+"""Anular Cobros — eliminación de pagos de cuotas.
 
 Ventana de selección y anulación de pagos existentes.
-NO es una consulta histórica: el usuario selecciona un pago para ELIMINARLO.
 """
 
 import datetime
@@ -75,7 +74,6 @@ def _search_socios(query):
 
 
 def _load_pagos(id_socio):
-    """Load active (non-deleted) payments for a socio."""
     conn = db.get_connection()
     try:
         socio = conn.execute(
@@ -92,16 +90,24 @@ def _load_pagos(id_socio):
             "ORDER BY FechadePago DESC",
             (id_socio,),
         ).fetchall()
-        return dict(socio), [dict(p) for p in pagos]
+        result = []
+        for p in pagos:
+            result.append({
+                "idPago": str(p["idPago"]),
+                "Importe": p["Importe"],
+                "FechaVencimineto": p["FechaVencimineto"],
+                "FechadePago": p["FechadePago"],
+                "Observaciones": p["Observaciones"],
+            })
+        return dict(socio), result
     finally:
         conn.close()
 
 
 def _delete_pago(id_pago):
-    """Physically delete a payment record. No recovery possible."""
     conn = db.get_connection()
     try:
-        conn.execute("DELETE FROM tbPagos WHERE idPago = ?", (id_pago,))
+        conn.execute("DELETE FROM tbPagos WHERE idPago = ?", (int(id_pago),))
         conn.commit()
     finally:
         conn.close()
@@ -110,16 +116,17 @@ def _delete_pago(id_pago):
 # ── Main Window ───────────────────────────────────────────────────────────
 
 class AnularCobrosWindow(tk.Toplevel):
-    def __init__(self, parent=None, socio_id=None):
+    def __init__(self, parent=None, socio_id=None, on_deleted=None):
         super().__init__(parent)
         self.title("ANULAR COBROS")
         self.geometry(f"{W}x{H}")
         self.minsize(600, 400)
         self.configure(bg=BG)
-        self.bind("<Escape>", lambda _: self.destroy())
+        self.bind("<Escape>", lambda _: self._on_close())
 
         self.current_socio_id = socio_id
         self.socio_info = None
+        self.on_deleted = on_deleted
 
         self._build()
 
@@ -137,7 +144,6 @@ class AnularCobrosWindow(tk.Toplevel):
     # ── Build ─────────────────────────────────────────────────────────────
 
     def _build(self):
-        # === SEARCH BAR ===
         frm_search = tk.Frame(self, bg=BG, height=36)
         frm_search.pack(fill="x", padx=PAD, pady=(8, 4))
         frm_search.pack_propagate(False)
@@ -159,7 +165,6 @@ class AnularCobrosWindow(tk.Toplevel):
             command=self._do_search,
         ).place(x=628, y=2, width=70, height=30)
 
-        # === SOCIO INFO PANEL ===
         frm_info = tk.Frame(self, bg="#D8D8D8", relief="flat", bd=0)
         frm_info.pack(fill="x", padx=PAD, pady=(4, 2))
 
@@ -175,14 +180,12 @@ class AnularCobrosWindow(tk.Toplevel):
         )
         self.lbl_dni.pack(anchor="w", padx=10, pady=(0, 8))
 
-        # === SECTION TITLE ===
         self.lbl_title = tk.Label(
             self, text="", bg=BG,
             font=("Helvetica", 9, "bold"), fg=FG, anchor="w",
         )
         self.lbl_title.pack(fill="x", padx=PAD + 4, pady=(6, 2))
 
-        # === PAYMENT GRID ===
         frm_grid = tk.Frame(self, bg=BG)
         frm_grid.pack(fill="both", expand=True, padx=PAD, pady=(0, 4))
 
@@ -190,7 +193,7 @@ class AnularCobrosWindow(tk.Toplevel):
         self.tree = ttk.Treeview(
             frm_grid, columns=cols, show="headings", selectmode="browse",
         )
-        self.tree.heading("idPago", text="idPago")
+        self.tree.heading("idPago", text="ID Pago")
         self.tree.heading("importe", text="Importe")
         self.tree.heading("vencimiento", text="Vencimiento")
         self.tree.heading("fecha_pago", text="Fecha de Pago")
@@ -203,24 +206,21 @@ class AnularCobrosWindow(tk.Toplevel):
         self.tree.column("obs", width=200, minwidth=80, anchor="w")
 
         style = ttk.Style(self)
-        style.configure("A.Treeview", rowheight=22, font=("Helvetica", 9),
+        style.configure("AN.Treeview", rowheight=22, font=("Helvetica", 9),
                         background="#FFF", fieldbackground="#FFF")
-        style.configure("A.Treeview.Heading", font=("Helvetica", 8, "bold"))
-        style.map("A.Treeview",
+        style.configure("AN.Treeview.Heading", font=("Helvetica", 8, "bold"))
+        style.map("AN.Treeview",
                   background=[("selected", SEL_BG)],
                   foreground=[("selected", "#FFF")])
-        self.tree.configure(style="A.Treeview")
+        self.tree.configure(style="AN.Treeview")
 
         vsb = ttk.Scrollbar(frm_grid, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
         self.tree.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
 
-        # Double-click or Enter → anular
         self.tree.bind("<Double-Button-1>", lambda _: self._on_anular())
-        self.bind("<Return>", lambda _: self._on_anular())
 
-        # === BOTTOM BAR ===
         bar = tk.Frame(self, bg=BG, height=38)
         bar.pack(fill="x", padx=PAD, pady=(0, PAD))
 
@@ -233,7 +233,7 @@ class AnularCobrosWindow(tk.Toplevel):
         self.btn_anular.pack(side="right", padx=(6, 0))
 
         tk.Button(
-            bar, text="Volver", width=10, command=self.destroy,
+            bar, text="Volver", width=10, command=self._on_close,
         ).pack(side="right", padx=(6, 0))
 
     # ── Search ────────────────────────────────────────────────────────────
@@ -244,7 +244,7 @@ class AnularCobrosWindow(tk.Toplevel):
             return
         results = _search_socios(query)
         if not results:
-            messagebox.showinfo("Búsqueda", "No se encontraron socios.")
+            messagebox.showinfo("Búsqueda", "No se encontraron socios.", parent=self)
             return
         if len(results) == 1:
             self._load_socio_by_id(results[0]["idSocio"])
@@ -298,7 +298,7 @@ class AnularCobrosWindow(tk.Toplevel):
     def _load_socio_by_id(self, id_socio):
         socio, pagos = _load_pagos(id_socio)
         if socio is None:
-            messagebox.showinfo("Error", "Socio no encontrado.")
+            messagebox.showinfo("Error", "Socio no encontrado.", parent=self)
             return
 
         self.current_socio_id = id_socio
@@ -308,7 +308,7 @@ class AnularCobrosWindow(tk.Toplevel):
         self.lbl_nombre.configure(text=nombre)
         self.lbl_dni.configure(text=f"DNI: {socio.get('Documento', '')}")
         self.lbl_title.configure(
-            text=f"ULTIMOS PAGOS REALIZADOS POR EL SOCIO:")
+            text="ULTIMOS PAGOS REALIZADOS POR EL SOCIO:")
 
         self.tree.delete(*self.tree.get_children())
         for p in pagos:
@@ -317,7 +317,7 @@ class AnularCobrosWindow(tk.Toplevel):
                 f"${_safe_float(p['Importe']):,.0f}",
                 _fmt(p.get("FechaVencimineto")),
                 _fmt(p.get("FechadePago")),
-                p.get("Observaciones", "") or "",
+                p.get("Observaciones") or "",
             ))
 
         self.btn_anular.configure(state="normal" if pagos else "disabled")
@@ -330,7 +330,13 @@ class AnularCobrosWindow(tk.Toplevel):
             return
 
         vals = self.tree.item(sel[0], "values")
-        id_pago = str(vals[0])
+        id_pago = str(vals[0]).strip()
+        fcobro = vals[3]
+        importe = vals[1]
+
+        if not id_pago or id_pago == "None":
+            messagebox.showerror("Error", "No se pudo identificar el pago.", parent=self)
+            return
 
         confirm = tk.Toplevel(self)
         confirm.title("Confirmar Anulación")
@@ -343,21 +349,27 @@ class AnularCobrosWindow(tk.Toplevel):
 
         tk.Label(
             confirm,
-            text=f"¿Seguro de eliminar el IdPago: {id_pago}?",
+            text=f"¿Seguro de eliminar el Pago ID: {id_pago}?",
             bg=BG, font=("Helvetica", 10), fg=FG,
         ).place(relx=0.5, y=25, anchor="center")
 
         tk.Label(
             confirm,
-            text="Esta acción eliminará\npermanentemente el cobro.",
+            text=f"Fecha: {fcobro}  Importe: {importe}\nEsta acción eliminará\npermanentemente el cobro.",
             bg=BG, font=("Helvetica", 9, "bold"), fg="#CC0000",
             justify="center",
-        ).place(relx=0.5, y=60, anchor="center")
+        ).place(relx=0.5, y=65, anchor="center")
 
         def _confirm_delete():
-            confirm.destroy()
             _delete_pago(id_pago)
+            confirm.destroy()
             self._refresh()
+            if self.on_deleted:
+                self.on_deleted()
+            self.after(50, lambda: (self.lift(), self.focus_force()))
+
+        def _cancel():
+            confirm.destroy()
             self.after(50, lambda: (self.lift(), self.focus_force()))
 
         tk.Button(
@@ -365,22 +377,22 @@ class AnularCobrosWindow(tk.Toplevel):
             font=("Helvetica", 9, "bold"), relief="flat",
             activebackground="#666",
             command=_confirm_delete,
-        ).place(x=70, y=100, width=80, height=28)
+        ).place(x=70, y=105, width=80, height=28)
 
         tk.Button(
             confirm, text="Cancelar", bg="#888", fg="#FFF",
             font=("Helvetica", 9, "bold"), relief="flat",
             activebackground="#666",
-            command=confirm.destroy,
-        ).place(x=170, y=100, width=80, height=28)
+            command=_cancel,
+        ).place(x=170, y=105, width=80, height=28)
 
     def _refresh(self):
         if self.current_socio_id:
             self._load_socio_by_id(self.current_socio_id)
 
 
-def open_window(parent=None, socio_id=None):
-    return AnularCobrosWindow(parent, socio_id=socio_id)
+def open_window(parent=None, socio_id=None, on_deleted=None):
+    return AnularCobrosWindow(parent, socio_id=socio_id, on_deleted=on_deleted)
 
 
 if __name__ == "__main__":
