@@ -340,11 +340,14 @@ class AnularCobrosWindow(tk.Toplevel):
 
         confirm = tk.Toplevel(self)
         confirm.title("Confirmar Anulación")
-        confirm.geometry("320x140")
         confirm.configure(bg=BG)
         confirm.resizable(False, False)
         confirm.transient(self)
         confirm.grab_set()
+        confirm.update_idletasks()
+        sw = confirm.winfo_screenwidth()
+        sh = confirm.winfo_screenheight()
+        confirm.geometry(f"320x140+{(sw - 320) // 2}+{(sh - 140) // 2}")
         confirm.bind("<Escape>", lambda _: confirm.destroy())
 
         tk.Label(
