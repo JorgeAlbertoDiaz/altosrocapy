@@ -8,10 +8,12 @@ import tkinter.font as tkfont
 try:
     from app import login
     from app import acceso_socios
+    from app import consultar_estados_socios
     from app.resources import load_logo, apply_app_icon
 except ImportError:  # dev / frozen fallback
     import login
     import acceso_socios
+    import consultar_estados_socios
     from resources import load_logo, apply_app_icon
 
 WINDOW_WIDTH = 1366
@@ -116,6 +118,9 @@ def build_sidebar(window: tk.Tk, font_family: str) -> tk.Frame:
 def open_module(window: tk.Tk, name: str, font_family: str) -> None:
     if name == "Acceso Socios":
         acceso_socios.open_window(window)
+        return
+    if name == "Consultar Estados Socios":
+        consultar_estados_socios.open_window(window)
         return
     top = tk.Toplevel(window)
     top.title(name)
