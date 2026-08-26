@@ -10,12 +10,14 @@ try:
     from app import acceso_socios
     from app import consultar_estados_socios
     from app import consultar_socios
+    from app import registrar_cobros
     from app.resources import load_logo, apply_app_icon
 except ImportError:  # dev / frozen fallback
     import login
     import acceso_socios
     import consultar_estados_socios
     import consultar_socios
+    import registrar_cobros
     from resources import load_logo, apply_app_icon
 
 WINDOW_WIDTH = 1366
@@ -126,6 +128,9 @@ def open_module(window: tk.Tk, name: str, font_family: str) -> None:
         return
     if name == "Consultar Socios":
         consultar_socios.open_window(window)
+        return
+    if name == "Registrar Cobros":
+        registrar_cobros.open_window(window)
         return
     top = tk.Toplevel(window)
     top.title(name)
