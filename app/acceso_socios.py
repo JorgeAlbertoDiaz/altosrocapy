@@ -130,7 +130,7 @@ class AccesoSociosWindow(tk.Toplevel):
         self.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         self.resizable(False, False)
         self.configure(bg=COLOR_MAIN_BG)
-        self.protocol("WM_DELETE_WINDOW", self.withdraw)
+        self.protocol("WM_DELETE_WINDOW", self._hide)
         apply_app_icon(self)
 
         self.state = "waiting"
@@ -317,6 +317,24 @@ class AccesoSociosWindow(tk.Toplevel):
             top, text=detalle,
             bg="#F0F0F0", fg="#555555", font=("Helvetica", 11),
         ).place(relx=0.5, rely=0.56, anchor="center")
+
+    def _hide(self):
+        """Hide the window and hand focus back to its owner window.
+
+        Withdrawing a focused Toplevel lets Windows choose who gets
+        activation next; on first close that chain is not established yet
+        and the whole app can end up minimized. Returning focus explicitly
+        avoids it.
+        """
+        master = self.master
+        self.withdraw()
+        try:
+            if master is not None:
+                master.deiconify()
+                master.lift()
+                master.focus_force()
+        except tk.TclError:
+            pass
 
     def focus_input(self):
         try:
