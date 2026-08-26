@@ -24,4 +24,11 @@ foreach ($p in $Paths) {
     Write-Host "Excluido del analisis: $p" -ForegroundColor Green
 }
 
+# Excluir solo los ejecutables de la app (no la extension .exe global)
+$exes = Get-ChildItem -Path $Paths -Filter "AltosRoca*.exe" -Recurse -ErrorAction SilentlyContinue
+foreach ($exe in $exes) {
+    Add-MpPreference -ExclusionPath $exe.FullName
+    Write-Host "Excluido del analisis: $($exe.FullName)" -ForegroundColor Green
+}
+
 Read-Host "Presione Enter para salir"
