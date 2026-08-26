@@ -411,6 +411,9 @@ class ConsultarSociosWindow(tk.Toplevel):
         right.place(x=610, y=52, width=W - 610 - PAD, height=H - 52 - 48)
 
         # --- Panel INGRESOS ---
+        # NOTE: a manual Canvas instead of ttk.Treeview — Treeview cannot
+        # paint individual cells nor multiline headings, and Tk renders
+        # emoji monochrome, so colored dots need real drawing primitives.
         frm_ing = tk.LabelFrame(
             right, text=" INGRESOS ", bg=BG,
             font=("Helvetica", 9, "bold"), relief="groove", bd=1,
@@ -418,29 +421,43 @@ class ConsultarSociosWindow(tk.Toplevel):
         )
         frm_ing.place(x=0, y=0, relwidth=1.0, height=380)
 
-        cols = ("fecha", "vencimiento", "saldo", "acceso")
-        self.tree = ttk.Treeview(
-            frm_ing, columns=cols, show="headings",
-            selectmode="browse", height=16,
+        DOT_GREEN = "#00A651"
+        DOT_RED = "#E53935"
+        DOT_ORANGE = "#FB8C00"
+        DOT_YELLOW = "#F5C400"
+
+        hdr = tk.Frame(frm_ing, bg=GRID_HDR)
+        hdr.place(x=4, y=4, width=372, height=32)
+        headers = [
+            ("Fecha de Acceso", 10, "w"),
+            ("Estado\nVencimiento", 205, "center"),
+            ("Estado\nSaldo", 283, "center"),
+            ("Estado\nAcceso", 352, "center"),
+        ]
+        for text, x, anchor in headers:
+            tk.Label(
+                hdr, text=text, bg=GRID_HDR, fg=FG_HEADER,
+                font=("Helvetica", 7, "bold"), justify="center",
+            ).place(x=x, y=2, anchor="n" if anchor == "center" else "nw")
+
+        self.canvas_ing = tk.Canvas(
+            frm_ing, bg="#FFF",
+            highlightthickness=1, highlightbackground="#888",
         )
-        self.tree.heading("fecha", text="Fecha de Acceso")
-        self.tree.heading("vencimiento", text="Estado Vencimiento")
-        self.tree.heading("saldo", text="Estado Saldo")
-        self.tree.heading("acceso", text="Estado Acceso")
-        self.tree.column("fecha", width=170, anchor="w")
-        self.tree.column("vencimiento", width=90, anchor="center")
-        self.tree.column("saldo", width=80, anchor="center")
-        self.tree.column("acceso", width=80, anchor="center")
+        vsb = ttk.Scrollbar(frm_ing, orient="vertical",
+                            command=self.canvas_ing.yview)
+        self.canvas_ing.configure(yscrollcommand=vsb.set)
+        self.canvas_ing.place(x=4, y=38, width=372, height=334)
+        vsb.place(x=376, y=38, height=334)
+        self.canvas_ing.bind(
+            "<MouseWheel>",
+            lambda e: self.canvas_ing.yview_scroll(-e.delta // 120, "units"))
 
-        vsb = ttk.Scrollbar(frm_ing, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=vsb.set)
-        self.tree.place(x=4, y=4, relwidth=0.94, relheight=0.95)
-        vsb.place(relx=0.95, y=4, relheight=0.95)
-
-        # Tags for row colors
-        self.tree.tag_configure("ok", foreground=FG_GREEN)
-        self.tree.tag_configure("bad", foreground=FG_RED)
-        self.tree.tag_configure("warn", foreground=FG_ORANGE)
+        self._dot_colors = {
+            "green": DOT_GREEN, "red": DOT_RED,
+            "orange": DOT_ORANGE, "yellow": DOT_YELLOW,
+        }
+        self._ingresos_rows = []
 
         # REGISTRAR INGRESO button
         self.btn_ingreso = tk.Button(
@@ -624,23 +641,41 @@ class ConsultarSociosWindow(tk.Toplevel):
         #   vencimiento: verde vigente / rojo vencido
         #   saldo:       verde sin deuda / naranja con deuda
         #   acceso:      amarillo si no registra acceso, verde si registra
-        self.tree.delete(*self.tree.get_children())
+        self._ingresos_rows = []
         for acc in s.get("_accesos", []):
             fecha = _fmt_datetime(acc.get("FechaAcceso"))
 
             est_venc = str(acc.get("Estado")) == "1"
-            venc_dot = "\U0001F7E2" if est_venc else "\U0001F534"
+            c_venc = "green" if est_venc else "red"
 
             saldo_ok = str(acc.get("EstadoSaldo")) == "1"
-            saldo_dot = "\U0001F7E2" if saldo_ok else "\U0001F7E0"
+            c_saldo = "green" if saldo_ok else "orange"
 
             registra = str(acc.get("EstadoAcceso")) in ("0", "1")
-            acceso_dot = "\U0001F7E2" if registra else "\U0001F7E1"
+            c_acc = "green" if registra else "yellow"
 
-            self.tree.insert(
-                "", "end",
-                values=(fecha, venc_dot, saldo_dot, acceso_dot),
+            self._ingresos_rows.append((fecha, c_venc, c_saldo, c_acc))
+        self._render_ingresos()
+
+    def _render_ingresos(self):
+        """Draw the ingresos rows (fecha + colored dots) on the canvas."""
+        c = self.canvas_ing
+        c.delete("all")
+        step = 26
+        dot_x = {"venc": 205, "saldo": 283, "acc": 352}
+        for i, (fecha, cv, cs, ca) in enumerate(self._ingresos_rows):
+            y = i * step + step // 2 + 6
+            c.create_text(
+                10, y, anchor="w", text=fecha, font=("Helvetica", 8), fill=FG,
             )
+            for x, color_key in (
+                (dot_x["venc"], cv), (dot_x["saldo"], cs), (dot_x["acc"], ca),
+            ):
+                color = self._dot_colors[color_key]
+                c.create_oval(x - 7, y - 7, x + 7, y + 7,
+                              fill=color, outline="")
+        total_h = max(len(self._ingresos_rows) * step + 12, 1)
+        c.configure(scrollregion=(0, 0, 372, total_h))
 
     # ── Actions ───────────────────────────────────────────────────────────
 
