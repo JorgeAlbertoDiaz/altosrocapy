@@ -254,7 +254,7 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
         frm_filters = tk.LabelFrame(
             self, text=" Filtros ", bg=BG,
             font=("Helvetica", 9, "bold"), relief="groove", bd=1,
-            labelanchor="nw", height=70,
+            labelanchor="nw", height=82,
         )
         frm_filters.pack(fill="x", padx=PAD, pady=(0, 4))
         frm_filters.pack_propagate(False)
@@ -353,7 +353,9 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
             style="G.Treeview", selectmode="browse")
 
         for c, w in zip(cols, widths):
-            self.tree.heading(c, text=c, font=("Helvetica", 8, "bold"))
+            # NOTE: ttk headings do not accept a "font" option; the heading
+            # font comes from the "G.Treeview.Heading" style above.
+            self.tree.heading(c, text=c)
             a = "center" if c in ("idSocio", "Nro", "Importe", "Saldo", "Estado") else "w"
             self.tree.column(c, width=w, minwidth=30, anchor=a)
 
