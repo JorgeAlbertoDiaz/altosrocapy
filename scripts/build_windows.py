@@ -21,6 +21,40 @@ BUILDS = [
     {"name": "AltosRocaDebug", "windowed": False},
 ]
 
+# Dependencies required by the app AND by the build itself.
+REQUIRED_PACKAGES = ["pyinstaller", "openpyxl", "fpdf2", "tkcalendar"]
+REQUIRED_IMPORTS = {
+    "pyinstaller": "PyInstaller",
+    "openpyxl": "openpyxl",
+    "fpdf2": "fpdf",
+    "tkcalendar": "tkcalendar",
+}
+
+
+def ensure_dependencies() -> None:
+    """Install any missing package into THIS interpreter.
+
+    The 'py' launcher may resolve to several Python installs; building with
+    one that lacks PyInstaller/app deps fails confusingly. This keeps the
+    script self-healing no matter which interpreter runs it.
+    """
+    import importlib
+
+    missing = []
+    for package, module in REQUIRED_IMPORTS.items():
+        try:
+            importlib.import_module(module)
+        except ImportError:
+            missing.append(package)
+    if not missing:
+        return
+    print(f"== Instalando dependencias faltantes: {', '.join(missing)} ==")
+    result = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "--quiet", *missing],
+    )
+    if result.returncode != 0:
+        raise SystemExit("Fallo la instalacion de dependencias con pip")
+
 
 def kill_running():
     subprocess.run(
@@ -54,6 +88,8 @@ def main() -> None:
         help="Carpeta destino de los exe y la DB",
     )
     args = parser.parse_args()
+
+    ensure_dependencies()
 
     dist_dir = os.path.join(PROJECT_ROOT, "dist-windows")
     work_dir = os.path.join(PROJECT_ROOT, "build", "tmp")
