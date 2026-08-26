@@ -12,6 +12,7 @@ try:
     from app import consultar_socios
     from app import registrar_cobros
     from app import anular_cobros
+    from app import registrar_socio
     from app.resources import load_logo, apply_app_icon
 except ImportError:  # dev / frozen fallback
     import login
@@ -20,6 +21,7 @@ except ImportError:  # dev / frozen fallback
     import consultar_socios
     import registrar_cobros
     import anular_cobros
+    import registrar_socio
     from resources import load_logo, apply_app_icon
 
 WINDOW_WIDTH = 1366
@@ -136,6 +138,9 @@ def open_module(window: tk.Tk, name: str, font_family: str) -> None:
         return
     if name == "Anular Cobros":
         anular_cobros.open_window(window)
+        return
+    if name == "Registrar Socios":
+        registrar_socio.open_window(window)
         return
     top = tk.Toplevel(window)
     top.title(name)

@@ -259,11 +259,19 @@ def _register_acceso(conn, id_socio, id_plan):
             pass
 
     # EstadoAcceso = 1 if manual (from this module)
+    # Generate next idIngreso
+    row = conn.execute(
+        "SELECT MAX(CAST(idIngreso AS INTEGER)) AS m FROM tbSociosAcceso "
+        "WHERE idIngreso GLOB '[0-9]*'"
+    ).fetchone()
+    max_ing = int(row["m"] or 0) if row and row["m"] else 0
+    new_ing = str(max_ing + 1)
+
     conn.execute(
         "INSERT INTO tbSociosAcceso "
-        "(idSocio, idPlan, FechaAcceso, Estado, EstadoSaldo, EstadoAcceso) "
-        "VALUES (?, ?, ?, ?, ?, 0)",
-        (id_socio, id_plan, now, str(vigente), str(saldo_ok)),
+        "(idIngreso, idSocio, idPlan, FechaAcceso, Estado, EstadoSaldo, EstadoAcceso) "
+        "VALUES (?, ?, ?, ?, ?, ?, 0)",
+        (new_ing, id_socio, id_plan, now, str(vigente), str(saldo_ok)),
     )
     conn.commit()
 
