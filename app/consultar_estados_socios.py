@@ -1,10 +1,8 @@
 """Consultar Estados Socios: panel administrativo de vencimientos/saldos/planes."""
 
 import datetime
-import locale
 import sqlite3
 import tkinter as tk
-import tkinter.font as tkfont
 from tkinter import ttk, messagebox
 
 try:
@@ -12,15 +10,16 @@ try:
 except ImportError:
     import db
 
-# ── Locale for Spanish date names ──────────────────────────────────────────
-_LOCALE_SET = False
-for _loc in ("es_AR.UTF-8", "es_ES.UTF-8", "Spanish_Spain", "Spanish"):
-    try:
-        locale.setlocale(locale.LC_TIME, _loc)
-        _LOCALE_SET = True
-        break
-    except locale.Error:
-        continue
+# ── Spanish day/month names (avoid locale encoding issues) ─────────────────
+_DAYS_ES = {
+    0: "lunes", 1: "martes", 2: "miércoles", 3: "jueves",
+    4: "viernes", 5: "sábado", 6: "domingo",
+}
+_MONTHS_ES = {
+    1: "enero", 2: "febrero", 3: "marzo", 4: "abril",
+    5: "mayo", 6: "junio", 7: "julio", 8: "agosto",
+    9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre",
+}
 
 WINDOW_WIDTH = 950
 WINDOW_HEIGHT = 620
@@ -32,7 +31,10 @@ FG_ORANGE = "#FF6600"
 FG_DARKRED = "#8B0000"
 SELECTION_BG = "#0078D7"
 
-GRID_PAD_X = 15  # horizontal padding for all rows
+GRID_PAD_X = 10  # horizontal padding for all rows
+
+# Name truncation limit (legacy system: 16 chars without comma)
+NAME_MAX_CHARS = 16
 
 
 def _parse_date(raw):
@@ -51,12 +53,22 @@ def _format_date_ddmmyyyy(raw):
 
 def _today_es():
     today = datetime.date.today()
-    try:
-        day_name = today.strftime("%A")
-        month_name = today.strftime("%B")
-        return f"{day_name}, {today.day} de {month_name} de {today.year}"
-    except Exception:
-        return today.strftime("%Y-%m-%d")
+    return f"{_DAYS_ES[today.weekday()]}, {today.day} de {_MONTHS_ES[today.month]} de {today.year}"
+
+
+def _truncate_name(apellidos, nombres):
+    """Truncate name to 16 chars (legacy style), keeping full surname."""
+    ap = (apellidos or "").strip()
+    no = (nombres or "").strip()
+    full = f"{ap}, {no}"
+    if len(full) > NAME_MAX_CHARS:
+        # Keep surname + comma + truncate first name
+        available = NAME_MAX_CHARS - len(ap) - 2  # 2 for ", "
+        if available > 0:
+            return f"{ap}, {no[:available]}"
+        else:
+            return ap[:NAME_MAX_CHARS]
+    return full
 
 
 def _get_latest_payments_map(conn):
@@ -77,28 +89,51 @@ def _get_latest_payments_map(conn):
 
 
 def _get_plan_names_map(conn):
+    """idPlan -> Descripcion (full name)."""
     rows = conn.execute(
-        "SELECT idPlan, Nomenclatura FROM tbPlan"
+        "SELECT idPlan, Descripcion FROM tbPlan"
     ).fetchall()
-    return {r["idPlan"]: r["Nomenclatura"] for r in rows}
+    return {r["idPlan"]: r["Descripcion"] for r in rows}
 
 
-def _get_plan_names(conn):
+def _get_plan_descriptions(conn):
+    """Return list of Descripcion values for the combo box."""
     rows = conn.execute(
-        "SELECT Nomenclatura FROM tbPlan WHERE idPlan != '------' ORDER BY Nomenclatura"
+        "SELECT Descripcion FROM tbPlan WHERE idPlan != '------' ORDER BY Descripcion"
     ).fetchall()
-    return [r["Nomenclatura"] for r in rows]
+    return [r["Descripcion"] for r in rows]
 
 
-def populate_grid(tree, status_label, filter_mode, plan=None, date=None):
+def _get_plan_id_by_desc(conn, desc):
+    """Return idPlan for a given Descripcion."""
+    row = conn.execute(
+        "SELECT idPlan FROM tbPlan WHERE Descripcion = ?", (desc,)
+    ).fetchone()
+    return row["idPlan"] if row else None
+
+
+def _has_unpaid_deudas(conn, id_socio):
+    """Check if socio has any uncancelled debts."""
+    row = conn.execute(
+        "SELECT 1 FROM tb_RegistroDeudas "
+        "WHERE idSocio = ? AND (Cancelada IS NULL OR Cancelada != '1') "
+        "AND (Eliminado IS NULL OR Eliminado != '1') LIMIT 1",
+        (id_socio,),
+    ).fetchone()
+    return row is not None
+
+
+def populate_grid(tree, status_label, filter_mode, plan_desc=None, date=None):
     """Query DB and fill treeview. Returns row count."""
     tree.delete(*tree.get_children())
     conn = db.get_connection()
     try:
         hoy = datetime.date.today()
+        hoy_str = hoy.strftime("%Y-%m-%d")
         hace90 = hoy - datetime.timedelta(days=90)
         hace90_str = hace90.strftime("%Y-%m-%d")
 
+        # Base query: all valid socios
         base_sql = """
             SELECT s.idSocio, s.Apellidos, s.Nombres, s.Documento,
                    s.NroInscripcion, s.Estado, s.id_Plan, s.FechaBaja
@@ -113,26 +148,12 @@ def populate_grid(tree, status_label, filter_mode, plan=None, date=None):
         """
         params = []
 
-        if filter_mode == "ACTIVOS":
-            base_sql += " AND s.Estado = '1' AND (s.FechaBaja IS NULL OR s.FechaBaja = '')"
-        elif filter_mode == "INACTIVOS":
-            base_sql += " AND (s.Estado != '1' OR (s.FechaBaja IS NOT NULL AND s.FechaBaja != ''))"
-            base_sql += " AND s.FechaBaja >= ?"
-            params.append(hace90_str)
-        elif filter_mode == "ACTIVOS_C_SALDO":
-            base_sql += " AND s.Estado = '1' AND (s.FechaBaja IS NULL OR s.FechaBaja = '')"
-        elif filter_mode == "ACTIVOS_POR_PLAN":
-            base_sql += " AND s.Estado = '1' AND (s.FechaBaja IS NULL OR s.FechaBaja = '')"
-            if plan:
-                base_sql += " AND s.id_Plan = (SELECT idPlan FROM tbPlan WHERE Nomenclatura = ?)"
-                params.append(plan)
-        elif filter_mode == "INACTIVOS_POR_PLAN":
-            base_sql += " AND (s.Estado != '1' OR (s.FechaBaja IS NOT NULL AND s.FechaBaja != ''))"
-            if plan:
-                base_sql += " AND s.id_Plan = (SELECT idPlan FROM tbPlan WHERE Nomenclatura = ?)"
-                params.append(plan)
-        elif filter_mode == "POR_DIA" and date:
-            base_sql += " AND s.Estado = '1' AND (s.FechaBaja IS NULL OR s.FechaBaja = '')"
+        # Filter by plan if needed
+        if filter_mode in ("ACTIVOS_POR_PLAN", "INACTIVOS_POR_PLAN") and plan_desc:
+            plan_id = _get_plan_id_by_desc(conn, plan_desc)
+            if plan_id:
+                base_sql += " AND s.id_Plan = ?"
+                params.append(plan_id)
 
         socios = conn.execute(base_sql, params).fetchall()
         pagos = _get_latest_payments_map(conn)
@@ -141,38 +162,83 @@ def populate_grid(tree, status_label, filter_mode, plan=None, date=None):
 
         for s in socios:
             sid = s["idSocio"]
-            activo = (s["Estado"] == "1") and (not s["FechaBaja"] or s["FechaBaja"].strip() == "")
-
             pago = pagos.get(sid)
             if pago is None:
                 continue
 
-            if filter_mode == "ACTIVOS_C_SALDO":
+            # Determine vencimiento date
+            venc_date = _parse_date(pago.get("FechaVencimineto"))
+            venc_vigente = venc_date is not None and venc_date >= hoy
+
+            # Check for uncancelled debts
+            tiene_deudas = _has_unpaid_deudas(conn, sid)
+
+            # Determine status based on business rules:
+            # ACTIVOS: cuota no vencida + sin deudas
+            # ACTIVOS C/SALDO: cuota no vencida + saldo pendiente o deudas
+            # INACTIVOS: cuota vencida
+            socio_activo = venc_vigente and not tiene_deudas
+            socio_con_saldo = False
+            if venc_vigente and not socio_activo:
+                socio_con_saldo = True
+            if venc_vigente and socio_activo:
                 try:
-                    saldo_val = float(pago["Saldo"] or 0)
+                    saldo_val = float(pago.get("Saldo") or 0)
                 except (ValueError, TypeError):
                     saldo_val = 0
-                if saldo_val <= 0:
-                    continue
+                if saldo_val > 0:
+                    socio_con_saldo = True
 
-            if filter_mode == "POR_DIA" and pago:
+            # Apply filter
+            if filter_mode == "ACTIVOS":
+                if not socio_activo:
+                    continue
+            elif filter_mode == "INACTIVOS":
+                if venc_vigente:
+                    continue
+                # Últimos 90 días: only show if FechaBaja is recent
+                if s["FechaBaja"]:
+                    fb = _parse_date(s["FechaBaja"])
+                    if fb and fb < hace90:
+                        continue
+            elif filter_mode == "ACTIVOS_C_SALDO":
+                if not venc_vigente or socio_activo:
+                    continue
+            elif filter_mode == "ACTIVOS_POR_PLAN":
+                if not socio_activo:
+                    continue
+            elif filter_mode == "INACTIVOS_POR_PLAN":
+                if venc_vigente:
+                    continue
+            elif filter_mode == "POR_DIA" and date:
                 pago_date = _parse_date(pago.get("FechadePago"))
                 sel_date = _parse_date(date)
                 if pago_date != sel_date:
                     continue
 
-            nombre = f"{(s['Apellidos'] or '').strip()}, {(s['Nombres'] or '').strip()}"
+            nombre = _truncate_name(s["Apellidos"], s["Nombres"])
             venc = _format_date_ddmmyyyy(pago.get("FechaVencimineto"))
             fpago = _format_date_ddmmyyyy(pago.get("FechadePago"))
             importe = str(pago.get("Importe") or "0")
             saldo = str(pago.get("Saldo") or "0")
             plan_name = planes.get(s["id_Plan"], "")
-            estado_icon = "\u2705" if activo else ""
+            estado_icon = "\u2705" if (socio_activo or socio_con_saldo) else ""
+
+            # Determine row tag color
+            if socio_con_saldo:
+                row_tag = "orange"
+            elif socio_activo:
+                row_tag = "green"
+            else:
+                row_tag = ""
+
+            tags = (row_tag,) if row_tag else ()
 
             tree.insert(
                 "", "end",
                 values=(sid, nombre, s["Documento"], s["NroInscripcion"],
                         venc, fpago, importe, saldo, plan_name, estado_icon),
+                tags=tags,
             )
             count += 1
 
@@ -206,7 +272,7 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
         # ── Row 0: Search entry ────────────────────────────────────────────
         search_frame = tk.Frame(self, bg=BG)
         search_frame.grid(row=0, column=0, sticky="ew",
-                          padx=GRID_PAD_X, pady=(10, 5))
+                          padx=GRID_PAD_X, pady=(8, 4))
 
         self.entry_search = tk.Entry(
             search_frame, bg="#FFFFFF", fg="#000000",
@@ -214,7 +280,7 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
             relief="solid", bd=1,
             highlightthickness=1, highlightbackground="#999999",
         )
-        self.entry_search.pack(fill="x", ipady=4)
+        self.entry_search.pack(fill="x", ipady=3)
 
         # ── Row 1: Filters panel ──────────────────────────────────────────
         filters_frame = tk.LabelFrame(
@@ -224,11 +290,9 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
             labelanchor="nw",
         )
         filters_frame.grid(row=1, column=0, sticky="ew",
-                           padx=GRID_PAD_X, pady=(0, 5))
-        # Make filter frame content expand horizontally
-        filters_frame.columnconfigure(10, weight=1)
+                           padx=GRID_PAD_X, pady=(0, 4))
 
-        # Row 1 of filters: ACTIVOS | INACTIVOS | C/SALDO | POR DÍA + date
+        # Row 1 of filters
         self.radio_activos = tk.Radiobutton(
             filters_frame, text="ACTIVOS", variable=self.filter_var,
             value="ACTIVOS", bg=BG, fg=FG_GREEN,
@@ -236,38 +300,38 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
             activebackground=BG, activeforeground=FG_GREEN,
             command=self._on_filter_change,
         )
-        self.radio_activos.grid(row=0, column=0, padx=(15, 10), pady=(8, 0), sticky="w")
+        self.radio_activos.grid(row=0, column=0, padx=(10, 8), pady=(6, 0), sticky="w")
 
         self.radio_inactivos = tk.Radiobutton(
             filters_frame, text="INACTIVOS", variable=self.filter_var,
             value="INACTIVOS", bg=BG, fg=FG_RED,
-            font=("Helvetica", 9), selectcolor=BG,
+            font=("Helvetica", 9, "bold"), selectcolor=BG,
             activebackground=BG, activeforeground=FG_RED,
             command=self._on_filter_change,
         )
-        self.radio_inactivos.grid(row=0, column=1, padx=10, pady=(8, 0), sticky="w")
+        self.radio_inactivos.grid(row=0, column=1, padx=8, pady=(6, 0), sticky="w")
         tk.Label(
             filters_frame, text="(Últimos 90 días)",
             bg=BG, fg=FG_DARKRED, font=("Helvetica", 7),
-        ).grid(row=1, column=1, padx=(30, 0), sticky="w")
+        ).grid(row=1, column=1, padx=(25, 0), sticky="w")
 
         self.radio_csaldo = tk.Radiobutton(
             filters_frame, text="ACTIVOS C/SALDO", variable=self.filter_var,
             value="ACTIVOS_C_SALDO", bg=BG, fg=FG_ORANGE,
-            font=("Helvetica", 9), selectcolor=BG,
+            font=("Helvetica", 9, "bold"), selectcolor=BG,
             activebackground=BG, activeforeground=FG_ORANGE,
             command=self._on_filter_change,
         )
-        self.radio_csaldo.grid(row=0, column=2, padx=10, pady=(8, 0), sticky="w")
+        self.radio_csaldo.grid(row=0, column=2, padx=8, pady=(6, 0), sticky="w")
 
         self.radio_pordia = tk.Radiobutton(
             filters_frame, text="POR DÍA", variable=self.filter_var,
             value="POR_DIA", bg=BG, fg="#000000",
-            font=("Helvetica", 9), selectcolor=BG,
+            font=("Helvetica", 9, "bold"), selectcolor=BG,
             activebackground=BG,
             command=self._on_filter_change,
         )
-        self.radio_pordia.grid(row=0, column=3, padx=10, pady=(8, 0), sticky="w")
+        self.radio_pordia.grid(row=0, column=3, padx=8, pady=(6, 0), sticky="w")
 
         self.entry_date = tk.Entry(
             filters_frame, bg="#FFFFFF", fg="#000000",
@@ -275,40 +339,40 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
             relief="solid", bd=1,
             state="readonly", readonlybackground="#FFFFFF",
         )
-        self.entry_date.grid(row=0, column=4, padx=(5, 15), pady=(8, 0), sticky="w")
+        self.entry_date.grid(row=0, column=4, padx=(4, 10), pady=(6, 0), sticky="w")
         self.entry_date.configure(state="normal")
         self.entry_date.insert(0, _today_es())
         self.entry_date.configure(state="readonly")
 
-        # Row 2 of filters: ACTIVOS POR PLAN + combo | INACTIVOS POR PLAN
+        # Row 2 of filters
         self.radio_aplan = tk.Radiobutton(
             filters_frame, text="ACTIVOS POR PLAN", variable=self.filter_var,
             value="ACTIVOS_POR_PLAN", bg=BG, fg=FG_GREEN,
-            font=("Helvetica", 9), selectcolor=BG,
+            font=("Helvetica", 9, "bold"), selectcolor=BG,
             activebackground=BG, activeforeground=FG_GREEN,
             command=self._on_filter_change,
         )
-        self.radio_aplan.grid(row=2, column=0, padx=(15, 10), pady=(4, 8), sticky="w")
+        self.radio_aplan.grid(row=2, column=0, padx=(10, 8), pady=(4, 6), sticky="w")
 
         self.combo_plan = ttk.Combobox(
             filters_frame, textvariable=self.plan_var,
             width=18, state="readonly",
         )
-        self.combo_plan.grid(row=2, column=1, padx=5, pady=(4, 8), sticky="w")
+        self.combo_plan.grid(row=2, column=1, padx=4, pady=(4, 6), sticky="w")
         self.combo_plan.bind("<<ComboboxSelected>>", lambda _e: self._on_filter_change())
 
         self.radio_iplan = tk.Radiobutton(
             filters_frame, text="INACTIVOS POR PLAN", variable=self.filter_var,
             value="INACTIVOS_POR_PLAN", bg=BG, fg=FG_RED,
-            font=("Helvetica", 9), selectcolor=BG,
+            font=("Helvetica", 9, "bold"), selectcolor=BG,
             activebackground=BG, activeforeground=FG_RED,
             command=self._on_filter_change,
         )
-        self.radio_iplan.grid(row=2, column=2, padx=10, pady=(4, 8), sticky="w")
+        self.radio_iplan.grid(row=2, column=2, padx=8, pady=(4, 6), sticky="w")
         tk.Label(
             filters_frame, text="(Últimos 90 días)",
             bg=BG, fg=FG_DARKRED, font=("Helvetica", 7),
-        ).grid(row=3, column=2, padx=(30, 0), sticky="w")
+        ).grid(row=3, column=2, padx=(25, 0), sticky="w")
 
         self._load_plans()
 
@@ -350,7 +414,7 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
     def _load_plans(self):
         conn = db.get_connection()
         try:
-            plans = _get_plan_names(conn)
+            plans = _get_plan_descriptions(conn)
         finally:
             conn.close()
         self.combo_plan["values"] = plans
@@ -362,13 +426,14 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
             "idSocio", "Nombre Completo", "Documento", "Nro",
             "Vencimiento", "FechaPago", "Importe", "Saldo", "Plan", "Estado",
         )
-        widths = (70, 220, 120, 70, 120, 120, 90, 70, 150, 70)
+        # Tight widths to fit 10 columns in ~920px without horizontal scroll
+        widths = (50, 175, 95, 50, 90, 90, 70, 60, 130, 50)
 
         style = ttk.Style(self)
         style.configure("Grid.Treeview",
                         background="#FFFFFF", foreground="#000000",
                         rowheight=22, fieldbackground="#FFFFFF",
-                        font=("Helvetica", 9))
+                        font=("Helvetica", 9, "bold"))
         style.configure("Grid.Treeview.Heading",
                         background=BG, font=("Helvetica", 8, "bold"))
         style.map("Treeview",
@@ -381,11 +446,12 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
         )
 
         for col, w in zip(columns, widths):
-            self.tree.heading(col, text=col)
+            self.tree.heading(col, text=col, font=("Helvetica", 8, "bold"))
             anchor = "center" if col in ("idSocio", "Nro", "Importe", "Saldo", "Estado") else "w"
             self.tree.column(col, width=w, minwidth=w, anchor=anchor)
 
         self.tree.tag_configure("green", foreground=FG_GREEN)
+        self.tree.tag_configure("orange", foreground=FG_ORANGE)
 
         scrollbar_y = ttk.Scrollbar(parent, orient="vertical", command=self.tree.yview)
         scrollbar_x = ttk.Scrollbar(parent, orient="horizontal", command=self.tree.xview)
@@ -410,9 +476,7 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
                 date = datetime.datetime.strptime(raw, "%A, %d de %B de %Y").date().strftime("%Y-%m-%d")
             except ValueError:
                 date = None
-        count = populate_grid(self.tree, self.lbl_count, mode, plan=plan, date=date)
-        for item in self.tree.get_children():
-            self.tree.item(item, tags=("green",))
+        populate_grid(self.tree, self.lbl_count, mode, plan_desc=plan, date=date)
 
 
 def open_window(parent=None):
