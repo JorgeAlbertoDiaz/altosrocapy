@@ -411,7 +411,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
         frm_right.place(x=right_x, y=tree_y0, width=right_w, height=tree_h)
 
         # --- Información del Socio (top right) ---
-        info_h = 145
+        info_h = 165
         frm_info = tk.LabelFrame(
             frm_right, text=" Información del Socio ", bg=BG,
             font=("Helvetica", 9, "bold"), relief="groove", bd=1,
@@ -508,7 +508,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
         self.lbl_final.place(x=IX, y=y)
         y += 28
 
-        # Tipo de Pago
+        # Tipo de Pago + Interés (same row)
         tk.Label(frm_cobro, text="Tipo de Pago:", bg=BG,
                  font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=LY, y=y)
         self.tipo_var = tk.StringVar(value="EFECTIVO")
@@ -517,18 +517,16 @@ class RegistrarCobrosWindow(tk.Toplevel):
             values=TIPOS_PAGO, state="readonly", width=18,
         )
         self.combo_tipo.place(x=IX, y=y)
-        y += 28
 
-        # Interés
         tk.Label(frm_cobro, text="Interés ($):", bg=BG,
-                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=LY, y=y)
+                 font=("Helvetica", 9, "bold"), fg=FG_LABEL).place(x=320, y=y)
         self.interes_var = tk.StringVar(value="0")
         self.entry_interes = tk.Entry(
             frm_cobro, textvariable=self.interes_var,
             bg="#FFF", fg=FG, font=("Helvetica", 9),
             relief="solid", bd=1,
         )
-        self.entry_interes.place(x=IX, y=y, width=80, height=LH)
+        self.entry_interes.place(x=420, y=y, width=80, height=LH)
         self.entry_interes.bind("<KeyRelease>", lambda _: self._recalc())
         y += 28
 
