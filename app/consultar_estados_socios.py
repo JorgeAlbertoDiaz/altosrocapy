@@ -109,13 +109,14 @@ def _plan_id(conn, desc):
     return r["idPlan"] if r else None
 
 
-def _has_deudas(conn, sid):
-    return conn.execute(
-        "SELECT 1 FROM tb_RegistroDeudas WHERE idSocio=? "
-        "AND (Cancelada IS NULL OR Cancelada!='1') "
-        "AND (Eliminado IS NULL OR Eliminado!='1') LIMIT 1",
-        (sid,),
-    ).fetchone() is not None
+def _unpaid_debtors(conn):
+    """Set of idSocio with at least one unpaid/not-deleted debt (ONE query)."""
+    rows = conn.execute(
+        "SELECT DISTINCT idSocio FROM tb_RegistroDeudas "
+        "WHERE (Cancelada IS NULL OR Cancelada!='1') "
+        "AND (Eliminado IS NULL OR Eliminado!='1')"
+    ).fetchall()
+    return {r["idSocio"] for r in rows}
 
 
 # ── Core query ────────────────────────────────────────────────────────────
@@ -125,7 +126,6 @@ def populate_grid(tree, status_label, filter_mode, plan_desc=None, date=None):
     conn = db.get_connection()
     try:
         hoy = datetime.date.today()
-        hace90 = hoy - datetime.timedelta(days=90)
 
         sql = """
             SELECT s.idSocio, s.Apellidos, s.Nombres, s.Documento,
@@ -149,6 +149,7 @@ def populate_grid(tree, status_label, filter_mode, plan_desc=None, date=None):
         socios = conn.execute(sql, params).fetchall()
         pagos = _latest_payments(conn)
         planes = _plan_map(conn)
+        deudores = _unpaid_debtors(conn)
         count = 0
 
         for s in socios:
@@ -157,36 +158,23 @@ def populate_grid(tree, status_label, filter_mode, plan_desc=None, date=None):
             if pago is None:
                 continue
 
+            # Business rules:
+            #   cuota vigente  -> latest FechaVencimineto >= today
+            #   ACTIVOS        -> cuota vigente y sin deudas
+            #   ACTIVOS C/SALDO-> cuota vigente y con deudas
+            #   INACTIVOS      -> cuota vencida (sin importar deudas)
             vd = _parse_date(pago.get("FechaVencimineto"))
             vigente = vd is not None and vd >= hoy
-            deudas = _has_deudas(conn, sid)
-            activo = vigente and not deudas
-
-            con_saldo = False
-            if vigente and not activo:
-                con_saldo = True
-            if activo:
-                try:
-                    if float(pago.get("Saldo") or 0) > 0:
-                        con_saldo = True
-                except (ValueError, TypeError):
-                    pass
+            tiene_deuda = sid in deudores
+            activo = vigente and not tiene_deuda
+            con_saldo = vigente and tiene_deuda
 
             # Filter
-            if filter_mode == "ACTIVOS" and not activo:
+            if filter_mode in ("ACTIVOS", "ACTIVOS_POR_PLAN") and not activo:
                 continue
-            if filter_mode == "INACTIVOS":
-                if vigente:
-                    continue
-                if s["FechaBaja"]:
-                    fb = _parse_date(s["FechaBaja"])
-                    if fb and fb < hace90:
-                        continue
-            if filter_mode == "ACTIVOS_C_SALDO" and (not vigente or activo):
+            if filter_mode == "ACTIVOS_C_SALDO" and not con_saldo:
                 continue
-            if filter_mode == "ACTIVOS_POR_PLAN" and not activo:
-                continue
-            if filter_mode == "INACTIVOS_POR_PLAN" and vigente:
+            if filter_mode in ("INACTIVOS", "INACTIVOS_POR_PLAN") and vigente:
                 continue
             if filter_mode == "POR_DIA" and date:
                 pd = _parse_date(pago.get("FechadePago"))
@@ -275,8 +263,6 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
             activebackground=BG, activeforeground=FG_RED,
             command=self._on_filter)
         self.r_inact.place(x=130, y=4)
-        tk.Label(frm_filters, text="(Últimos 90 días)", bg=BG, fg=FG_DARKRED,
-                 font=("Helvetica", 7)).place(x=148, y=20)
 
         self.r_csaldo = tk.Radiobutton(
             frm_filters, text="ACTIVOS C/SALDO", variable=self.filter_var,
@@ -325,8 +311,6 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
             activebackground=BG, activeforeground=FG_RED,
             command=self._on_filter)
         self.r_iplan.place(x=400, y=40)
-        tk.Label(frm_filters, text="(Últimos 90 días)", bg=BG, fg=FG_DARKRED,
-                 font=("Helvetica", 7)).place(x=418, y=56)
 
         self._load_plans()
 
