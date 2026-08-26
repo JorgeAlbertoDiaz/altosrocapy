@@ -19,7 +19,7 @@ except ImportError:
 
 # ── Constants ─────────────────────────────────────────────────────────────
 
-W, H = 1000, 560
+W, H = 1000, 610
 PAD = 10
 
 BG = "#F0F0F0"
@@ -371,7 +371,7 @@ class ConsultarSociosWindow(tk.Toplevel):
             font=("Helvetica", 9, "bold"), relief="groove", bd=1,
             labelanchor="nw",
         )
-        frm_info.place(x=0, y=316, width=588, height=138)
+        frm_info.place(x=0, y=316, width=588, height=186)
 
         self.lbls_info = {}
         info_fields = [
@@ -404,7 +404,7 @@ class ConsultarSociosWindow(tk.Toplevel):
             activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
             cursor="hand2", command=self._on_pagar,
         )
-        self.btn_pagar.place(x=10, y=105, width=100, height=28)
+        self.btn_pagar.place(x=10, y=130, width=100, height=32)
 
         # === RIGHT COLUMN (40%) ===
         right = tk.Frame(self, bg=BG)
@@ -427,10 +427,10 @@ class ConsultarSociosWindow(tk.Toplevel):
         self.tree.heading("vencimiento", text="Estado Vencimiento")
         self.tree.heading("saldo", text="Estado Saldo")
         self.tree.heading("acceso", text="Estado Acceso")
-        self.tree.column("fecha", width=145, anchor="w")
-        self.tree.column("vencimiento", width=115, anchor="center")
-        self.tree.column("saldo", width=100, anchor="center")
-        self.tree.column("acceso", width=100, anchor="center")
+        self.tree.column("fecha", width=170, anchor="w")
+        self.tree.column("vencimiento", width=90, anchor="center")
+        self.tree.column("saldo", width=80, anchor="center")
+        self.tree.column("acceso", width=80, anchor="center")
 
         vsb = ttk.Scrollbar(frm_ing, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=vsb.set)
@@ -620,36 +620,26 @@ class ConsultarSociosWindow(tk.Toplevel):
             text=f"{plan_nom} - {plan_desc}" if plan_nom else ""
         )
 
-        # Access history grid
+        # Access history grid — one colored dot per state column:
+        #   vencimiento: verde vigente / rojo vencido
+        #   saldo:       verde sin deuda / naranja con deuda
+        #   acceso:      amarillo si no registra acceso, verde si registra
         self.tree.delete(*self.tree.get_children())
         for acc in s.get("_accesos", []):
             fecha = _fmt_datetime(acc.get("FechaAcceso"))
-            # Estado: 1=vigente, 0=vencido
-            est_venc = "1" if str(acc.get("Estado")) == "1" else "0"
-            venc_icon = "\U0001F7E2 Vigente" if est_venc == "1" else "\U0001F534 Vencido"
-            venc_tag = "ok" if est_venc == "1" else "bad"
 
-            # EstadoSaldo: 1=sin saldo, 0=con saldo
-            est_saldo = str(acc.get("EstadoSaldo"))
-            saldo_icon = "\U0001F7E2 Sin saldo" if est_saldo == "1" else "\U0001F534 Con saldo"
-            saldo_tag = "ok" if est_saldo == "1" else "bad"
+            est_venc = str(acc.get("Estado")) == "1"
+            venc_dot = "\U0001F7E2" if est_venc else "\U0001F534"
 
-            # EstadoAcceso: 1=permitido, 0=denegado/manual
-            est_acceso = str(acc.get("EstadoAcceso"))
-            if est_acceso == "1":
-                acceso_icon = "\U0001F7E2 Permitido"
-                acceso_tag = "ok"
-            elif est_acceso == "0":
-                acceso_icon = "\U0001F7E0 Manual"
-                acceso_tag = "warn"
-            else:
-                acceso_icon = "\U0001F534 Denegado"
-                acceso_tag = "bad"
+            saldo_ok = str(acc.get("EstadoSaldo")) == "1"
+            saldo_dot = "\U0001F7E2" if saldo_ok else "\U0001F7E0"
+
+            registra = str(acc.get("EstadoAcceso")) in ("0", "1")
+            acceso_dot = "\U0001F7E2" if registra else "\U0001F7E1"
 
             self.tree.insert(
                 "", "end",
-                values=(fecha, venc_icon, saldo_icon, acceso_icon),
-                tags=(venc_tag,),
+                values=(fecha, venc_dot, saldo_dot, acceso_dot),
             )
 
     # ── Actions ───────────────────────────────────────────────────────────
