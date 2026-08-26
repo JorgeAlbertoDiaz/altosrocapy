@@ -14,6 +14,7 @@ import sys
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGO = os.path.join(PROJECT_ROOT, "temps", "logo.png")
+ICON = os.path.join(PROJECT_ROOT, "temps", "logo.ico")
 
 BUILDS = [
     {"name": "AltosRoca", "windowed": True},
@@ -36,7 +37,7 @@ def build(name: str, windowed: bool, dist_dir: str, work_dir: str) -> None:
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--onefile"]
     if windowed:
         cmd.append("--windowed")
-    cmd += ["--name", name, f"--add-data={LOGO};temps"]
+    cmd += ["--name", name, f"--add-data={LOGO};temps", f"--icon={ICON}"]
     cmd += ["--distpath", dist_dir, "--workpath", work_dir]
     cmd += [os.path.join(PROJECT_ROOT, "app", "login.py")]
     print(f"== Compilando {name}.exe ==")
