@@ -8,11 +8,11 @@ import tkinter.font as tkfont
 try:
     from app import login
     from app import acceso_socios
-    from app.resources import load_logo
+    from app.resources import load_logo, apply_app_icon
 except ImportError:  # dev / frozen fallback
     import login
     import acceso_socios
-    from resources import load_logo
+    from resources import load_logo, apply_app_icon
 
 WINDOW_WIDTH = 1366
 WINDOW_HEIGHT = 768
@@ -176,6 +176,7 @@ def build_principal(window: tk.Tk, usuario: str) -> None:
     build_topbar(window, usuario)
     build_sidebar(window, font_family)
     build_main_area(window, font_family)
+    apply_app_icon(window)
 
     acceso_socios.open_window(window)
 

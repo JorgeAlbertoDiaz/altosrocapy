@@ -8,10 +8,10 @@ import tkinter.font as tkfont
 
 try:
     from app import db
-    from app.resources import get_logo_path
+    from app.resources import get_logo_path, apply_app_icon
 except ImportError:
     import db
-    from resources import get_logo_path
+    from resources import get_logo_path, apply_app_icon
 
 WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 600
@@ -131,6 +131,7 @@ class AccesoSociosWindow(tk.Toplevel):
         self.resizable(False, False)
         self.configure(bg=COLOR_MAIN_BG)
         self.protocol("WM_DELETE_WINDOW", self.withdraw)
+        apply_app_icon(self)
 
         self.state = "waiting"
         self.current_socio = None

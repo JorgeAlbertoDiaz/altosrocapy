@@ -8,10 +8,10 @@ import tkinter.messagebox as messagebox
 
 try:
     from app.db import validate_credentials
-    from app.resources import load_logo
+    from app.resources import load_logo, apply_app_icon, force_taskbar_button
 except ImportError:  # dev / frozen fallback
     from db import validate_credentials
-    from resources import load_logo
+    from resources import load_logo, apply_app_icon, force_taskbar_button
 
 try:
     from app import principal
@@ -211,6 +211,8 @@ def build_login(window: tk.Tk) -> None:
 
     make_window_draggable(window)
     add_window_buttons(window)
+    apply_app_icon(window)
+    force_taskbar_button(window)
 
 
 def main() -> None:

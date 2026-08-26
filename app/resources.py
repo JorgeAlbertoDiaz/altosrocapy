@@ -46,3 +46,32 @@ def load_logo(max_w: int | None = None, max_h: int | None = None):
         if factor > 1:
             img = img.subsample(factor, factor)
     return img
+
+
+def apply_app_icon(window):
+    """Set the app icon on the window (and its future children)."""
+    img = load_logo()
+    if img is not None:
+        try:
+            window.iconphoto(True, img)
+        except Exception:
+            pass
+
+
+def force_taskbar_button(window):
+    """Make an overrideredirect(True) window show a taskbar button.
+
+    Borderless windows are not managed by Windows and get no taskbar
+    entry; briefly re-managing the window registers it.
+    """
+    def _toggle():
+        try:
+            window.overrideredirect(False)
+            window.iconify()
+            window.overrideredirect(True)
+            window.deiconify()
+        except Exception:
+            pass
+
+    window.update_idletasks()
+    window.after(50, _toggle)
