@@ -214,12 +214,15 @@ def _register_pago(conn, id_socio, id_plan, importe):
     """Register a monthly payment (cuota)."""
     hoy = datetime.date.today()
     venc = hoy + datetime.timedelta(days=30)
+    row = conn.execute("SELECT MAX(CAST(idPago AS INTEGER)) AS m FROM tbPagos").fetchone()
+    max_id = int(row["m"] or 0) if row and row["m"] else 0
+    new_id = str(max_id + 1)
     conn.execute(
         "INSERT INTO tbPagos "
-        "(idSocio, FechadePago, FechaVencimineto, Importe, Saldo, "
+        "(idPago, idSocio, FechadePago, FechaVencimineto, Importe, Saldo, "
         " EsRenovacion, Descuento, Observaciones, idTipoPago) "
-        "VALUES (?, ?, ?, ?, 0, '1', 0, '', '1')",
-        (id_socio, hoy.strftime("%Y-%m-%d"), venc.strftime("%Y-%m-%d"), importe),
+        "VALUES (?, ?, ?, ?, ?, 0, '1', 0, '', '1')",
+        (new_id, id_socio, hoy.strftime("%Y-%m-%d"), venc.strftime("%Y-%m-%d"), importe),
     )
     conn.commit()
 

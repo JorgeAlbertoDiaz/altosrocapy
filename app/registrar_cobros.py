@@ -178,13 +178,17 @@ def _load_cobro_data(id_socio):
 def _register_cobro(conn, id_socio, id_plan, fecha_pago, venc_nuevo,
                      importe, descuento, motivo_desc, tipo_pago,
                      interes, observaciones):
+    row = conn.execute("SELECT MAX(CAST(idPago AS INTEGER)) AS m FROM tbPagos").fetchone()
+    max_id = int(row["m"] or 0) if row and row["m"] else 0
+    new_id = str(max_id + 1)
     conn.execute(
         "INSERT INTO tbPagos "
-        "(idSocio, FechadePago, FechaVencimineto, Importe, Saldo, "
+        "(idPago, idSocio, FechadePago, FechaVencimineto, Importe, Saldo, "
         " Descuento, MotivoDescuento, EsRenovacion, Observaciones, "
         " UsuarioCobrador, idTipoPago) "
-        "VALUES (?, ?, ?, ?, 0, ?, ?, '1', ?, '', ?)",
-        (id_socio,
+        "VALUES (?, ?, ?, ?, ?, 0, ?, ?, '1', ?, '', ?)",
+        (new_id,
+         id_socio,
          fecha_pago.strftime("%Y-%m-%d"),
          venc_nuevo.strftime("%Y-%m-%d"),
          f"{importe:.2f}",
