@@ -149,7 +149,7 @@ class AnularCobrosWindow(tk.Toplevel):
             font=("Helvetica", 11),
             relief="solid", bd=1,
         )
-        self.entry_search.place(x=0, y=2, width=690, height=30)
+        self.entry_search.place(x=0, y=2, width=620, height=30)
         self.entry_search.bind("<Return>", lambda _: self._do_search())
 
         tk.Button(
@@ -157,7 +157,7 @@ class AnularCobrosWindow(tk.Toplevel):
             font=("Helvetica", 9, "bold"), relief="flat",
             activebackground="#666", cursor="hand2",
             command=self._do_search,
-        ).place(x=698, y=2, width=70, height=30)
+        ).place(x=628, y=2, width=70, height=30)
 
         # === SOCIO INFO PANEL ===
         frm_info = tk.Frame(self, bg="#D8D8D8", relief="flat", bd=0)
