@@ -61,17 +61,31 @@ def apply_app_icon(window):
 def force_taskbar_button(window):
     """Make an overrideredirect(True) window show a taskbar button.
 
-    Borderless windows are not managed by Windows and get no taskbar
-    entry; briefly re-managing the window registers it.
+    Borderless windows get no taskbar entry. Instead of the
+    iconify/deiconify trick (which hides the window and breaks keyboard
+    focus), we add the WS_EX_APPWINDOW extended style directly via the
+    Windows API — no flicker, no focus loss.
     """
-    def _toggle():
+    if sys.platform != "win32":
+        return
+
+    def _apply():
         try:
-            window.overrideredirect(False)
-            window.iconify()
-            window.overrideredirect(True)
-            window.deiconify()
+            import ctypes
+
+            hwnd = ctypes.windll.user32.GetParent(window.winfo_id())
+            if not hwnd:
+                return
+            GWL_EXSTYLE = -20
+            WS_EX_APPWINDOW = 0x00040000
+            WS_EX_TOOLWINDOW = 0x00000080
+            user32 = ctypes.windll.user32
+            style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            style = (style & ~WS_EX_TOOLWINDOW) | WS_EX_APPWINDOW
+            user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
+            window.lift()
         except Exception:
             pass
 
     window.update_idletasks()
-    window.after(50, _toggle)
+    window.after(50, _apply)

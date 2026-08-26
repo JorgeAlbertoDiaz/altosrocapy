@@ -74,6 +74,31 @@ def _get_latest_payments(conn, id_socio):
     return dict(row) if row else None
 
 
+def _get_latest_payments_map(conn):
+    """Latest payment per socio in ONE query (avoids N+1 full scans)."""
+    rows = conn.execute(
+        """
+        SELECT p.idSocio, p.FechaVencimineto, p.FechadePago, p.Importe, p.Saldo
+        FROM tbPagos p
+        JOIN (
+            SELECT idSocio, MAX(FechadePago) AS max_fp
+            FROM tbPagos
+            WHERE Eliminado IS NULL OR Eliminado != '1'
+            GROUP BY idSocio
+        ) latest ON p.idSocio = latest.idSocio AND p.FechadePago = latest.max_fp
+        """
+    ).fetchall()
+    return {r["idSocio"]: dict(r) for r in rows}
+
+
+def _get_plan_names_map(conn):
+    """idPlan -> Nomenclatura in one query."""
+    rows = conn.execute(
+        "SELECT idPlan, Nomenclatura FROM tbPlan"
+    ).fetchall()
+    return {r["idPlan"]: r["Nomenclatura"] for r in rows}
+
+
 def _get_plan_name(conn, id_plan):
     if not id_plan:
         return ""
@@ -137,14 +162,16 @@ def populate_grid(tree, status_label, filter_mode, plan=None, date=None):
             base_sql += " AND s.Estado = '1' AND (s.FechaBaja IS NULL OR s.FechaBaja = '')"
 
         socios = conn.execute(base_sql, params).fetchall()
+        pagos = _get_latest_payments_map(conn)
+        planes = _get_plan_names_map(conn)
         count = 0
 
         for s in socios:
             sid = s["idSocio"]
             activo = (s["Estado"] == "1") and (not s["FechaBaja"] or s["FechaBaja"].strip() == "")
 
-            # Latest payment
-            pago = _get_latest_payments(conn, sid)
+            # Latest payment (pre-fetched in a single grouped query)
+            pago = pagos.get(sid)
             if pago is None:
                 continue
 
@@ -169,7 +196,7 @@ def populate_grid(tree, status_label, filter_mode, plan=None, date=None):
             fpago = _format_date_ddmmyyyy(pago.get("FechadePago"))
             importe = str(pago.get("Importe") or "0")
             saldo = str(pago.get("Saldo") or "0")
-            plan_name = _get_plan_name(conn, s["id_Plan"])
+            plan_name = planes.get(s["id_Plan"], "")
             estado_icon = "\u2705" if activo else ""
 
             tree.insert(
