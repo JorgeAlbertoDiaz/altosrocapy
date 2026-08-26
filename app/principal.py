@@ -8,11 +8,11 @@ import tkinter.font as tkfont
 try:
     from app import login
     from app import acceso_socios
-    from app.resources import get_logo_path
+    from app.resources import load_logo
 except ImportError:  # dev / frozen fallback
     import login
     import acceso_socios
-    from resources import get_logo_path
+    from resources import load_logo
 
 WINDOW_WIDTH = 1366
 WINDOW_HEIGHT = 768
@@ -35,8 +35,6 @@ MODULES = [
     "Registrar Deudas",
     "Admin Pantalla",
 ]
-
-LOGO_PATH = get_logo_path()
 
 # Set by on_logout; consumed in main() after the mainloop ends.
 _logout_requested = False
@@ -145,15 +143,19 @@ def build_main_area(window: tk.Tk, font_family: str) -> None:
         band = tk.Frame(area, bg=color, height=band_h)
         band.place(x=0, y=i * band_h, relwidth=1.0, height=band_h + 1)
 
-    logo = None
-    if os.path.isfile(LOGO_PATH):
-        try:
-            logo = tk.PhotoImage(file=LOGO_PATH)
-            logo_label = tk.Label(area, image=logo, bd=0)
-            logo_label.place(relx=1.0, x=-40, rely=0.5, anchor="e")
-        except tk.TclError:
-            logo = None
-    if logo is None:
+    # The logo is transparent: give its label the gradient color at the
+    # vertical position where it sits, so the PNG alpha blends seamlessly.
+    steps = 40
+    band_h = WINDOW_HEIGHT // steps
+    mid = int((WINDOW_HEIGHT * 0.5) / band_h)
+    logo_bg = interpolate_color(COLOR_AREA_TOP, COLOR_AREA_BOTTOM, mid / (steps - 1))
+
+    logo = load_logo(max_w=420, max_h=400)
+    if logo is not None:
+        logo_label = tk.Label(area, image=logo, bg=logo_bg, bd=0)
+        logo_label.place(relx=1.0, x=-40, rely=0.5, anchor="e")
+        area.logo = logo
+    else:
         tk.Label(
             area,
             text="ALTOS ROCA",

@@ -8,10 +8,10 @@ import tkinter.messagebox as messagebox
 
 try:
     from app.db import validate_credentials
-    from app.resources import get_logo_path
+    from app.resources import load_logo
 except ImportError:  # dev / frozen fallback
     from db import validate_credentials
-    from resources import get_logo_path
+    from resources import load_logo
 
 try:
     from app import principal
@@ -32,8 +32,6 @@ COLOR_BUTTON_FG = "#E8D7C2"
 COLOR_WINDOW_BUTTONS = "#555555"
 
 TITLE_BAR_HEIGHT = 28
-
-LOGO_PATH = get_logo_path()
 
 
 def center_window(window: tk.Tk) -> None:
@@ -149,15 +147,11 @@ def build_login(window: tk.Tk) -> None:
     left_panel = tk.Frame(window, bg=BG_LEFT)
     left_panel.place(x=0, y=0, width=left_width, height=WINDOW_HEIGHT)
 
-    logo = None
-    if os.path.isfile(LOGO_PATH):
-        try:
-            logo = tk.PhotoImage(file=LOGO_PATH)
-            logo_label = tk.Label(left_panel, image=logo, bg=BG_LEFT, bd=0)
-            logo_label.place(relx=0.5, rely=0.5, anchor="center")
-        except tk.TclError:
-            logo = None
-    if logo is None:
+    logo = load_logo(max_w=left_width - 30, max_h=WINDOW_HEIGHT - 40)
+    if logo is not None:
+        logo_label = tk.Label(left_panel, image=logo, bg=BG_LEFT, bd=0)
+        logo_label.place(relx=0.5, rely=0.5, anchor="center")
+    else:
         # Logo not critical in this version; show name as fallback.
         tk.Label(
             left_panel,

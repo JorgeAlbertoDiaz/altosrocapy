@@ -22,3 +22,27 @@ def get_logo_path() -> str:
     """Path to the company logo; empty string if the file does not exist."""
     path = resource_path("temps", "logo.png")
     return path if os.path.isfile(path) else ""
+
+
+def load_logo(max_w: int | None = None, max_h: int | None = None):
+    """Load the logo scaled down to fit max_w x max_h (keeps aspect ratio).
+
+    Returns a tk.PhotoImage or None if unavailable. The caller must keep
+    a reference to the returned image to avoid garbage collection.
+    """
+    path = get_logo_path()
+    if not path:
+        return None
+    import tkinter as tk
+
+    try:
+        img = tk.PhotoImage(file=path)
+    except tk.TclError:
+        return None
+    if max_w and max_h:
+        w, h = img.width(), img.height()
+        # Ceil division: shrink just enough to fit the box.
+        factor = max(1, -(-w // max_w), -(-h // max_h))
+        if factor > 1:
+            img = img.subsample(factor, factor)
+    return img
