@@ -8,8 +8,10 @@ import tkinter.messagebox as messagebox
 
 try:
     from app.db import validate_credentials
+    from app.resources import get_logo_path
 except ImportError:  # dev / frozen fallback
     from db import validate_credentials
+    from resources import get_logo_path
 
 try:
     from app import principal
@@ -31,7 +33,7 @@ COLOR_WINDOW_BUTTONS = "#555555"
 
 TITLE_BAR_HEIGHT = 28
 
-LOGO_PATH = os.path.join(os.path.dirname(__file__), "..", "temps", "logo.png")
+LOGO_PATH = get_logo_path()
 
 
 def center_window(window: tk.Tk) -> None:

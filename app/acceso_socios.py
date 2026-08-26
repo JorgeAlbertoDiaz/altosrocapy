@@ -8,8 +8,10 @@ import tkinter.font as tkfont
 
 try:
     from app import db
+    from app.resources import get_logo_path
 except ImportError:
     import db
+    from resources import get_logo_path
 
 WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 600
@@ -28,7 +30,7 @@ COLOR_BUTTON_BG = "#314863"
 COLOR_PHOTO_BG = "#000000"
 COLOR_PHOTO_FG = "#FFFFFF"
 
-LOGO_PATH = os.path.join(os.path.dirname(__file__), "..", "temps", "logo.png")
+LOGO_PATH = get_logo_path()
 
 _singleton = {"window": None, "logo": None}
 

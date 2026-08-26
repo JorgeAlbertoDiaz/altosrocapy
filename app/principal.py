@@ -8,9 +8,11 @@ import tkinter.font as tkfont
 try:
     from app import login
     from app import acceso_socios
+    from app.resources import get_logo_path
 except ImportError:  # dev / frozen fallback
     import login
     import acceso_socios
+    from resources import get_logo_path
 
 WINDOW_WIDTH = 1366
 WINDOW_HEIGHT = 768
@@ -34,7 +36,7 @@ MODULES = [
     "Admin Pantalla",
 ]
 
-LOGO_PATH = os.path.join(os.path.dirname(__file__), "..", "temps", "logo.png")
+LOGO_PATH = get_logo_path()
 
 # Set by on_logout; consumed in main() after the mainloop ends.
 _logout_requested = False
