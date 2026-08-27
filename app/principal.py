@@ -14,6 +14,7 @@ try:
     from app import anular_cobros
     from app import registrar_socio
     from app import registrar_deudas
+    from app import caja
     from app.resources import load_logo, apply_app_icon
 except ImportError:  # dev / frozen fallback
     import login
@@ -24,6 +25,7 @@ except ImportError:  # dev / frozen fallback
     import anular_cobros
     import registrar_socio
     import registrar_deudas
+    import caja
     from resources import load_logo, apply_app_icon
 
 WINDOW_WIDTH = 1366
@@ -146,6 +148,9 @@ def open_module(window: tk.Tk, name: str, font_family: str) -> None:
         return
     if name == "Registrar Deudas":
         registrar_deudas.open_window(window)
+        return
+    if name in ("Consultar Caja", "Caja", "Ingresos"):
+        caja.open_window(window)
         return
     top = tk.Toplevel(window)
     top.title(name)
