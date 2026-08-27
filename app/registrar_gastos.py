@@ -25,8 +25,10 @@ except ImportError:
 W, H = 600, 520
 BG = "#F0F0F0"
 FG = "#000000"
+FG_DISABLED = "#777777"
 FG_LABEL = "#000000"
 ENTRY_BG = "#FFFFFF"
+ENTRY_READONLY_BG = "#E8E8E8"
 BTN_BLUE = "#3B6FA0"
 BTN_BLUE_ACTIVE = "#2D5A85"
 SEL_BG = "#0078D7"
@@ -189,12 +191,13 @@ class RegistrarGastosWindow(tk.Toplevel):
             self.combo_pago.current(0)  # Efectivo
         self.combo_pago.place(x=130, y=100, width=150, height=24)
 
-        # Usuario
+        # Usuario (no editable: siempre es el usuario logueado)
         tk.Label(frm, text="Usuario:", bg=BG, font=FN, fg=FG_LABEL).place(x=20, y=145)
         self.usuario_var = tk.StringVar(value=self.usuario_logueado)
         self.entry_usuario = tk.Entry(
-            frm, textvariable=self.usuario_var, bg=ENTRY_BG, fg=FG, font=FN,
-            relief="solid", bd=1)
+            frm, textvariable=self.usuario_var, state="readonly",
+            readonlybackground=ENTRY_READONLY_BG, fg=FG_DISABLED, font=FN,
+            relief="solid", bd=1, cursor="arrow")
         self.entry_usuario.place(x=130, y=140, width=150, height=24)
 
         # Detalle (wide)

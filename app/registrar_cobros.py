@@ -177,7 +177,7 @@ def _load_cobro_data(id_socio):
 
 def _register_cobro(conn, id_socio, id_plan, fecha_pago, venc_nuevo,
                      importe, descuento, motivo_desc, tipo_pago,
-                     interes, observaciones):
+                     interes, observaciones, usuario=""):
     row = conn.execute("SELECT MAX(CAST(idPago AS INTEGER)) AS m FROM tbPagos").fetchone()
     max_id = int(row["m"] or 0) if row and row["m"] else 0
     new_id = str(max_id + 1)
@@ -186,7 +186,7 @@ def _register_cobro(conn, id_socio, id_plan, fecha_pago, venc_nuevo,
         "(idPago, idSocio, FechadePago, FechaVencimineto, Importe, Saldo, "
         " Descuento, MotivoDescuento, EsRenovacion, Observaciones, "
         " UsuarioCobrador, idTipoPago) "
-        "VALUES (?, ?, ?, ?, ?, 0, ?, ?, '1', ?, '', ?)",
+        "VALUES (?, ?, ?, ?, ?, 0, ?, ?, '1', ?, ?, ?)",
         (new_id,
          id_socio,
          fecha_pago.strftime("%Y-%m-%d"),
@@ -195,6 +195,7 @@ def _register_cobro(conn, id_socio, id_plan, fecha_pago, venc_nuevo,
          f"{descuento:.2f}",
          motivo_desc or "",
          observaciones or "",
+         usuario,
          TIPO_ID_MAP.get(tipo_pago, "1")),
     )
     conn.commit()
@@ -326,7 +327,7 @@ class CambioVencimientoDialog(tk.Toplevel):
 # ── Main Window ───────────────────────────────────────────────────────────
 
 class RegistrarCobrosWindow(tk.Toplevel):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, usuario=None):
         super().__init__(parent)
         self.title("Registrar Cobros")
         self.geometry(f"{W}x{H}")
@@ -334,6 +335,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
         self.configure(bg=BG)
         self.bind("<Escape>", lambda _: self.destroy())
 
+        self.usuario = usuario or ""
         self.current_socio = None
         self.new_venc_override = None
 
@@ -868,7 +870,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
                 conn, s["idSocio"], s["id_Plan"],
                 fecha_pago, venc_nuevo,
                 importe_final, descuento, motivo,
-                tipo, interes, obs,
+                tipo, interes, obs, self.usuario,
             )
         except Exception as e:
             messagebox.showerror("Error", f"Error al registrar cobro: {e}", parent=self)
@@ -893,8 +895,8 @@ class RegistrarCobrosWindow(tk.Toplevel):
         )
 
 
-def open_window(parent=None, socio_id=None):
-    w = RegistrarCobrosWindow(parent)
+def open_window(parent=None, socio_id=None, usuario=None):
+    w = RegistrarCobrosWindow(parent, usuario=usuario)
     if socio_id is not None:
         w.update_idletasks()
         w.after(50, lambda sid=str(socio_id): w._load_socio(sid))

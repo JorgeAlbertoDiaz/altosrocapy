@@ -146,7 +146,7 @@ def _cancel_all(id_socio):
 # ── Main Window ───────────────────────────────────────────────────────────
 
 class RegistrarDeudasWindow(tk.Toplevel):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, usuario=None):
         super().__init__(parent)
         self.title("Registrar Deudas")
         self.geometry(f"{W}x{H}")
@@ -154,6 +154,7 @@ class RegistrarDeudasWindow(tk.Toplevel):
         self.configure(bg=BG)
         self.bind("<Escape>", lambda _: self.destroy())
 
+        self.usuario = usuario or ""
         self.current_socio = None
         self._build()
 
@@ -367,7 +368,8 @@ class RegistrarDeudasWindow(tk.Toplevel):
 
         try:
             new_id = _register_deuda(
-                self.current_socio["idSocio"], fecha, importe_f, detalle)
+                self.current_socio["idSocio"], fecha, importe_f, detalle,
+                self.usuario)
         except Exception as e:
             messagebox.showerror("Error", f"Error al registrar deuda: {e}", parent=self)
             return
@@ -399,8 +401,8 @@ class RegistrarDeudasWindow(tk.Toplevel):
         cancelar_deudas.open_window(self, socio_id=self.current_socio["idSocio"])
 
 
-def open_window(parent=None):
-    return RegistrarDeudasWindow(parent)
+def open_window(parent=None, usuario=None):
+    return RegistrarDeudasWindow(parent, usuario=usuario)
 
 
 if __name__ == "__main__":

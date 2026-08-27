@@ -177,7 +177,7 @@ def open_module(window: tk.Tk, name: str, font_family: str) -> None:
         consultar_socios.open_window(window)
         return
     if name == "Registrar Cobros":
-        registrar_cobros.open_window(window)
+        registrar_cobros.open_window(window, usuario=_current_user)
         return
     if name == "Anular Cobros":
         anular_cobros.open_window(window)
@@ -186,7 +186,7 @@ def open_module(window: tk.Tk, name: str, font_family: str) -> None:
         registrar_socio.open_window(window)
         return
     if name == "Registrar Deudas":
-        registrar_deudas.open_window(window)
+        registrar_deudas.open_window(window, usuario=_current_user)
         return
     if name in ("Consultar Caja", "Caja", "Ingresos"):
         caja.open_window(window)
