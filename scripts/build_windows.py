@@ -187,12 +187,21 @@ def discover_pythons() -> list:
             continue
         major, minor = int(m.group(1)), int(m.group(2))
         bits = m.group(3) or ""
+        path = line[m.end():].strip() if m.end() < len(line) else ""
+        # Sin sufijo de arquitectura (p. ej. "-V:3.12"): el launcher `py` solo
+        # omite el sufijo para la instalacion por defecto, que en un SO de 64
+        # bits es la de 64. Un Python de 32 bits siempre viene con "-32" (o con
+        # rutas tipo -32/(x86)/Python3X-32), asi que en ausencia de pista se
+        # asume 64 bits.
+        if not bits:
+            path_l = path.lower()
+            if "-32" in path_l or "x86" in path_l:
+                bits = "32"
+            else:
+                bits = "64"
         # recomponer el tag exacto que espera `py`: -3.8-32 / -3.13-64
-        if bits:
-            tag = f"-{major}.{minor}-{bits}"
-        else:
-            tag = f"-{major}.{minor}"
-        found.append({"tag": tag, "bits": bits, "version": (major, minor)})
+        tag = f"-{major}.{minor}-{bits}"
+        found.append({"tag": tag, "bits": bits, "version": (major, minor), "path": path})
     return found
 
 
