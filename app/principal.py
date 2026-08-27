@@ -16,6 +16,8 @@ try:
     from app import registrar_deudas
     from app import caja
     from app import historial_cobros
+    from app import abm_generico
+    from app import admin_cuentas
     from app.resources import load_logo, apply_app_icon
 except ImportError:  # dev / frozen fallback
     import login
@@ -28,6 +30,8 @@ except ImportError:  # dev / frozen fallback
     import registrar_deudas
     import caja
     import historial_cobros
+    import abm_generico
+    import admin_cuentas
     from resources import load_logo, apply_app_icon
 
 WINDOW_WIDTH = 1366
@@ -73,12 +77,41 @@ def interpolate_color(start: str, end: str, t: float) -> str:
     )
 
 
-def build_topbar(window: tk.Tk, usuario: str) -> None:
+def build_topbar(window: tk.Tk, usuario: str, font_family: str) -> None:
     bar = tk.Frame(window, bg=COLOR_TOPBAR_BG, height=30)
     bar.pack(side="top", fill="x")
     bar.pack_propagate(False)
 
-    for name in ("Admin", "Alta de Datos", "Gráficos Estadísticos", "Ayuda"):
+    def _cmd(name):
+        return lambda: open_module(window, name, font_family)
+
+    # --- Admin ---
+    m_admin = tk.Menubutton(bar, text="Admin", bg=COLOR_TOPBAR_BG,
+                            fg="#000000")
+    menu_admin = tk.Menu(m_admin, tearoff=0)
+    menu_admin.add_command(label="Admin Pantalla (cuentas de usuario)",
+                           command=_cmd("Admin Pantalla"))
+    m_admin.configure(menu=menu_admin)
+    m_admin.pack(side="left", padx=10)
+
+    # --- Alta de Datos ---
+    m_alta = tk.Menubutton(bar, text="Alta de Datos", bg=COLOR_TOPBAR_BG,
+                           fg="#000000")
+    menu_alta = tk.Menu(m_alta, tearoff=0)
+    menu_alta.add_command(label="Registrar Deuda", command=_cmd("Registrar Deudas"))
+    menu_alta.add_separator()
+    menu_alta.add_command(label="Planes", command=_cmd("ABM Planes"))
+    menu_alta.add_command(label="Formas de Pago",
+                          command=_cmd("ABM Formas de Pago"))
+    menu_alta.add_command(label="Tipos de Gasto",
+                          command=_cmd("ABM Tipos de Gasto"))
+    menu_alta.add_command(label="Tipos de Ingreso",
+                          command=_cmd("ABM Tipos de Ingreso"))
+    m_alta.configure(menu=menu_alta)
+    m_alta.pack(side="left", padx=10)
+
+    # --- Gráficos Estadísticos (próximamente) ---
+    for name in ("Gráficos Estadísticos", "Ayuda"):
         btn = tk.Menubutton(bar, text=name, bg=COLOR_TOPBAR_BG, fg="#000000")
         menu = tk.Menu(btn, tearoff=0)
         menu.add_command(label="(próximamente)", state="disabled")
@@ -157,6 +190,12 @@ def open_module(window: tk.Tk, name: str, font_family: str) -> None:
     if name in ("Historial de Cobros", "Historial Cobros"):
         historial_cobros.open_window(window)
         return
+    if name == "Admin Pantalla":
+        admin_cuentas.open_window(window)
+        return
+    if name.startswith("ABM "):
+        abm_generico.open_window(window, titulo=name[4:])
+        return
     top = tk.Toplevel(window)
     top.title(name)
     top.geometry("900x600")
@@ -213,7 +252,7 @@ def build_principal(window: tk.Tk, usuario: str) -> None:
     window.resizable(False, False)
     center_window(window)
 
-    build_topbar(window, usuario)
+    build_topbar(window, usuario, font_family)
     build_sidebar(window, font_family)
     build_main_area(window, font_family)
     apply_app_icon(window)
