@@ -5,7 +5,7 @@ Centraliza:
   - Cobros de deudas (tb_RegistroDeudas canceladas)
   - Ingresos manuales (tbIngresosGenerales)
   - Gastos (tbGastosGenerales)
-  - Balance acumulado (calculado, nunca almacenado)
+  - Balance acumulado = ingresos (DEBE) - gastos (HABER), calculado, nunca almacenado
 
 Estética: WinForms / VB.NET clásica. Lista cronológica (más antiguo arriba).
 """
@@ -102,14 +102,14 @@ def _collect_movements(fecha_d, fecha_h, usuario, id_tipo_pago,
     """Return a flat, unsorted list of movement dicts.
 
     Each dict: {'fecha_ts', 'id', 'detalle', 'debe', 'haber'}
-      - debe  = money out (gasto)  -> positive in debe
-      - haber = money in (ingreso) -> positive in haber
+      - debe  = money in (ingreso) -> positive in debe (suma)
+      - haber = money out (gasto)  -> positive in haber
     """
     conn = _get_con()
     movs = []
     try:
         if incluir_ingresos:
-            # 1) Cuotas cobradas (tbPagos) — haber
+            # 1) Cuotas cobradas (tbPagos) — debe
             rows = conn.execute(
                 "SELECT p.idPago, p.idSocio, p.FechadePago, p.Importe, "
                 "  p.UsuarioCobrador, p.idTipoPago, p.Observaciones "
@@ -127,11 +127,11 @@ def _collect_movements(fecha_d, fecha_h, usuario, id_tipo_pago,
                            f" - Fec: {_fmt_ts(r[2])}")
                 movs.append({
                     "fecha_ts": str(r[2]), "id": str(r[0]), "detalle": detalle,
-                    "debe": 0.0, "haber": float(r[3] or 0),
+                    "debe": float(r[3] or 0), "haber": 0.0,
                     "usuario": r[4] or "", "pago": str(r[5] or ""),
                 })
 
-            # 2) Deudas cobradas (canceladas) — haber
+            # 2) Deudas cobradas (canceladas) — debe
             rows = conn.execute(
                 "SELECT d.idDeuda, d.idSocio, d.FechaCancelacion, "
                 "  d.ImporteDeuda, d.Detalle, d.UsuarioCobrador "
@@ -146,11 +146,11 @@ def _collect_movements(fecha_d, fecha_h, usuario, id_tipo_pago,
                 detalle = (f"Pago Deuda - {nombre} - {r[4] or ''}")
                 movs.append({
                     "fecha_ts": str(r[2]), "id": str(r[0]), "detalle": detalle,
-                    "debe": 0.0, "haber": float(r[3] or 0),
+                    "debe": float(r[3] or 0), "haber": 0.0,
                     "usuario": r[5] or "", "pago": "0",
                 })
 
-            # 3) Ingresos generales — haber
+            # 3) Ingresos generales — debe
             rows = conn.execute(
                 "SELECT g.idIngreso, g.Detalle, g.Importe, g.Fecha, "
                 "  g.UsuarioCobrador, g.idTipoPago "
@@ -163,12 +163,12 @@ def _collect_movements(fecha_d, fecha_h, usuario, id_tipo_pago,
                 detalle = f"Ingreso Extra - {r[1] or ''}"
                 movs.append({
                     "fecha_ts": str(r[3]), "id": str(r[0]), "detalle": detalle,
-                    "debe": 0.0, "haber": float(r[2] or 0),
+                    "debe": float(r[2] or 0), "haber": 0.0,
                     "usuario": r[4] or "", "pago": str(r[5] or ""),
                 })
 
         if incluir_gastos:
-            # 4) Gastos — debe
+            # 4) Gastos — haber
             rows = conn.execute(
                 "SELECT g.idGastos, g.Detalle, g.Importe, g.Fecha, "
                 "  g.Usuario, g.idTipoPago "
@@ -181,7 +181,7 @@ def _collect_movements(fecha_d, fecha_h, usuario, id_tipo_pago,
                 detalle = f"Gasto - {r[1] or ''}"
                 movs.append({
                     "fecha_ts": str(r[3]), "id": str(r[0]), "detalle": detalle,
-                    "debe": float(r[2] or 0), "haber": 0.0,
+                    "debe": 0.0, "haber": float(r[2] or 0),
                     "usuario": r[4] or "", "pago": str(r[5] or ""),
                 })
     finally:
@@ -499,7 +499,7 @@ class CajaWindow(tk.Toplevel):
         saldo = 0.0
         self._saldo_acum = []
         for m in self._movs:
-            saldo += m["haber"] - m["debe"]
+            saldo += m["debe"] - m["haber"]
             self._saldo_acum.append(saldo)
             self.tree.insert("", "end", values=(
                 m["id"], m["detalle"],

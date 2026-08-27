@@ -201,12 +201,13 @@ class ABMWindow(tk.Toplevel):
         # igual que AdminCuentasWindow: cada vista es independiente y se
         # oculta/muestra con place/place_forget, sin limpiar ni recargar
         # valores al alternar de modo.
-        self._modo = tk.StringVar(value="crear")
+        # Modo por defecto: edición (es más común editar/borrar que crear).
+        self._modo = tk.StringVar(value="editar")
         self.current_id = None
         self._build()
         self._refresh_grid()
         self._new_edit()
-        self._set_mode("crear")
+        self._set_mode("editar")
 
     # ── Build ─────────────────────────────────────────────────────────────
 
