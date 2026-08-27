@@ -21,7 +21,7 @@ except ImportError:
 
 # ── Constants ─────────────────────────────────────────────────────────────
 
-W, H = 900, 620
+W, H = 900, 650
 BG = "#F0F0F0"
 FG = "#000000"
 FG_LABEL = "#000000"
@@ -176,13 +176,13 @@ class RegistrarSocioWindow(tk.Toplevel):
 
     def _build(self):
         # ================================================================
-        # GroupBox 1 — Datos Personales  (x=10, y=45, 860x165)
+        # GroupBox 1 — Datos Personales  (x=10, y=45, 860x190)
         # ================================================================
         gb1 = tk.LabelFrame(
             self, text=" Datos Personales ", bg=BG,
             font=FN_B, fg=FG_GROUP, relief="groove", bd=GBD, labelanchor="nw",
         )
-        gb1.place(x=10, y=45, width=860, height=165)
+        gb1.place(x=10, y=45, width=860, height=190)
 
         # ── Columna izquierda ──
         # Row 1: Documento
@@ -237,7 +237,8 @@ class RegistrarSocioWindow(tk.Toplevel):
 
         # ── Columna derecha — Foto ──
         self.foto_frame = tk.Frame(gb1, bg="#000000")
-        self.foto_frame.place(x=720, y=10, width=125, height=125)
+        # Foto centrada verticalmente: (190-125)/2 = 32
+        self.foto_frame.place(x=720, y=22, width=125, height=125)
 
         self.lbl_foto = tk.Label(
             self.foto_frame, text="👤", bg="#000000", fg="#FFFFFF",
@@ -250,51 +251,51 @@ class RegistrarSocioWindow(tk.Toplevel):
             font=("Helvetica", 8, "bold"), relief="flat",
             activebackground="#666666", cursor="hand2",
             command=self._capture_photo,
-        ).place(x=720, y=140, width=125, height=24)
+        ).place(x=720, y=152, width=125, height=24)
 
         # ================================================================
-        # GroupBox 2 — Datos de Contacto  (x=10, y=218, 860x100)
+        # GroupBox 2 — Datos de Contacto  (x=10, y=243, 860x105)
         # ================================================================
         gb2 = tk.LabelFrame(
             self, text=" Datos de Contacto ", bg=BG,
             font=FN_B, fg=FG_GROUP, relief="groove", bd=GBD, labelanchor="nw",
         )
-        gb2.place(x=10, y=218, width=860, height=100)
+        gb2.place(x=10, y=243, width=860, height=105)
 
         # ── Columna izquierda ──
-        tk.Label(gb2, text="Domicilio", bg=BG, font=FN, fg=FG_LABEL).place(x=45, y=22)
+        tk.Label(gb2, text="Domicilio", bg=BG, font=FN, fg=FG_LABEL).place(x=45, y=20)
         self.entry_domicilio = tk.Entry(gb2, bg=ENTRY_BG, fg=FG, font=FN, relief="solid", bd=1)
-        self.entry_domicilio.place(x=110, y=15, width=280, height=EH)
+        self.entry_domicilio.place(x=110, y=13, width=280, height=EH)
 
-        tk.Label(gb2, text="E-Mail", bg=BG, font=FN, fg=FG_LABEL).place(x=62, y=50)
+        tk.Label(gb2, text="E-Mail", bg=BG, font=FN, fg=FG_LABEL).place(x=62, y=46)
         self.entry_email = tk.Entry(gb2, bg=ENTRY_BG, fg=FG, font=FN, relief="solid", bd=1)
-        self.entry_email.place(x=110, y=43, width=280, height=EH)
+        self.entry_email.place(x=110, y=39, width=280, height=EH)
 
-        tk.Label(gb2, text="Teléfono", bg=BG, font=FN, fg=FG_LABEL).place(x=48, y=78)
+        tk.Label(gb2, text="Teléfono", bg=BG, font=FN, fg=FG_LABEL).place(x=48, y=72)
         self.entry_telefono = tk.Entry(gb2, bg=ENTRY_BG, fg=FG, font=FN, relief="solid", bd=1)
-        self.entry_telefono.place(x=110, y=71, width=280, height=EH)
+        self.entry_telefono.place(x=110, y=65, width=280, height=EH)
 
         # ── Columna derecha ──
-        tk.Label(gb2, text="Localidad", bg=BG, font=FN, fg=FG_LABEL).place(x=575, y=22)
+        tk.Label(gb2, text="Localidad", bg=BG, font=FN, fg=FG_LABEL).place(x=575, y=20)
         self.entry_localidad = tk.Entry(gb2, bg=ENTRY_BG, fg=FG, font=FN, relief="solid", bd=1)
-        self.entry_localidad.place(x=640, y=15, width=COL_R_W, height=EH)
+        self.entry_localidad.place(x=640, y=13, width=COL_R_W, height=EH)
 
-        tk.Label(gb2, text="Obra Social", bg=BG, font=FN, fg=FG_LABEL).place(x=565, y=50)
+        tk.Label(gb2, text="Obra Social", bg=BG, font=FN, fg=FG_LABEL).place(x=565, y=46)
         self.entry_obra_social = tk.Entry(gb2, bg=ENTRY_BG, fg=FG, font=FN, relief="solid", bd=1)
-        self.entry_obra_social.place(x=640, y=43, width=COL_R_W, height=EH)
+        self.entry_obra_social.place(x=640, y=39, width=COL_R_W, height=EH)
 
-        tk.Label(gb2, text="Tel. de Urgencia", bg=BG, font=FN, fg=FG_LABEL).place(x=540, y=78)
+        tk.Label(gb2, text="Tel. de Urgencia", bg=BG, font=FN, fg=FG_LABEL).place(x=540, y=72)
         self.entry_tel_urgencia = tk.Entry(gb2, bg=ENTRY_BG, fg=FG, font=FN, relief="solid", bd=1)
-        self.entry_tel_urgencia.place(x=640, y=71, width=COL_R_W, height=EH)
+        self.entry_tel_urgencia.place(x=640, y=65, width=COL_R_W, height=EH)
 
         # ================================================================
-        # GroupBox 3 — Datos Médicos  (x=10, y=325, 860x130)
+        # GroupBox 3 — Datos Médicos  (x=10, y=356, 860x135)
         # ================================================================
         gb3 = tk.LabelFrame(
             self, text=" Datos Médicos ", bg=BG,
             font=FN_B, fg=FG_GROUP, relief="groove", bd=GBD, labelanchor="nw",
         )
-        gb3.place(x=10, y=325, width=860, height=130)
+        gb3.place(x=10, y=356, width=860, height=135)
 
         # ── Columna izquierda ──
         tk.Label(gb3, text="Información de importancia", bg=BG, font=FN,
@@ -334,13 +335,13 @@ class RegistrarSocioWindow(tk.Toplevel):
         self.lbl_imc_cls.place(x=580, y=95)
 
         # ================================================================
-        # GroupBox 4 — Datos Socio  (x=10, y=462, 860x70)
+        # GroupBox 4 — Datos Socio  (x=10, y=499, 860x70)
         # ================================================================
         gb4 = tk.LabelFrame(
             self, text=" Datos Socio ", bg=BG,
             font=FN_B, fg=FG_GROUP, relief="groove", bd=GBD, labelanchor="nw",
         )
-        gb4.place(x=10, y=462, width=860, height=70)
+        gb4.place(x=10, y=499, width=860, height=70)
 
         # Tipo Plan
         tk.Label(gb4, text="Tipo Plan", bg=BG, font=FN, fg=FG_LABEL).place(x=30, y=25)
@@ -378,15 +379,15 @@ class RegistrarSocioWindow(tk.Toplevel):
             self, text="Guardar", bg=BTN_SAVE, fg="#FFF",
             font=FN_B, relief="flat",
             activebackground=BTN_SAVE_ACTIVE, activeforeground="#FFF",
-            cursor="hand2", command=self._on_save,
-        ).place(x=670, y=555, width=90, height=30)
+            cursor="hand2",             command=self._on_save,
+        ).place(x=670, y=590, width=90, height=30)
 
         tk.Button(
             self, text="Cancelar", bg="#888", fg="#FFF",
             font=FN_B, relief="flat",
             activebackground="#666", activeforeground="#FFF",
             cursor="hand2", command=self.destroy,
-        ).place(x=780, y=555, width=90, height=30)
+        ).place(x=780, y=590, width=90, height=30)
 
     # ── ID prefill ────────────────────────────────────────────────────────
 
