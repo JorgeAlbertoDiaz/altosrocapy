@@ -1,31 +1,31 @@
 # Build de AltosRoca para Windows: compila los .exe y los copia al destino.
 #
-# Uso (desde la raiz del proyecto):
-#   py scripts\build_windows.py                                   # usa el Python actual
-#   py scripts\build_windows.py --bits 64 --dest "D:\mi-carpeta"  # exe de 64 bits
+# Uso (desde la raiz del proyecto, en Windows):
+#   py scripts\build_windows.py                        # orquesta: exe 64 bits moderno
+#   py scripts\build_windows.py --win7                 # orquesta: exe 64 bits + exe win7 x86
+#   py scripts\build_windows.py --bits 64 --dest "D:\mi-carpeta"
 #   py scripts\build_windows.py --check dist-windows\AltosRoca.exe
 #
-# Requisitos: PyInstaller (`py -m pip install pyinstaller`). Para exe moderno
-# usar Python 3.12+; para compatibilidad con Windows 7 usar Python 3.8 (la
-# ultima que lo soporta) y el script forza las dependencias compatibles.
+# Modo orquestador (default, solo Windows con launcher `py`): detecta los
+# Pythons instalados con `py -0p` y compila solo:
+#   - variante moderna de 64 bits (Python 3.9+ x64), siempre
+#   - variante win7 de maxima compatibilidad (Python 3.8 x86), con `--win7`
+# El exe win7-x86 corre hasta en Windows 7 de 32 bits; el de 64 bits no corre
+# en SO de 32 bits.
+#
+# Requisitos: PyInstaller (`py -m pip install pyinstaller`). Para el exe win7
+# se necesita un Python 3.8 de 32 bits instalado y registrado en `py`; el
+# script fuerza las dependencias compatibles con 3.8 (fpdf2<2.8.4, openpyxl<4).
 #
 # IMPORTANTE (arquitectura): PyInstaller NO es cross-compiler. La arquitectura
 # del .exe resultante la fija el intérprete de Python que ejecuta este script:
 #   - Python 64-bit  -> exe 64-bit  (NO corre en un Windows de 32 bits)
 #   - Python 32-bit  -> exe 32-bit  (corre en Windows de 32 y 64 bits)
-#
-# Para producir AMBAS arquitecturas (lo recomendable si el exe debe correr en
-# PCs viejas de 32 bits y en las modernas de 64), correr el script dos veces,
-# una con cada Python, y copiar los .exe resultantes al mismo destino:
-#   py -3-32 scripts\build_windows.py --dest "C:\altos roca\dist-windows"
-#   py -3-64 scripts\build_windows.py --dest "C:\altos roca\dist-windows"
-# El script genera AltosRoca-32.exe / AltosRoca-64.exe (ademas del plano nativo
-# AltosRoca.exe), para que convivan en la misma carpeta. Con un solo Python
-# instalado solo se produce esa arquitectura.
 
 import argparse
 import os
 import platform
+import re
 import shutil
 import struct
 import subprocess
@@ -163,43 +163,97 @@ def _build_one(name: str, windowed: bool, dist_dir: str, work_dir: str) -> None:
         raise SystemExit(f"Fallo la compilacion de {name}.exe")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Compila AltosRoca para Windows e inspecciona arquitectura.")
-    parser.add_argument(
-        "--dest",
-        default=r"C:\altos roca\dist-windows",
-        help="Carpeta destino de los exe y la DB",
-    )
-    parser.add_argument(
-        "--check",
-        metavar="EXE",
-        help="Solo inspecciona la arquitectura de un .exe y sale sin compilar.",
-    )
-    parser.add_argument(
-        "--bits",
-        choices=["32", "64"],
-        help=(
-            "Arquitectura requerida del .exe. Por defecto usa la del Python que "
-            "ejecuta este script. Para producir ambos, correr una vez con Python "
-            "de 32 bits (py -3-32) y otra con el de 64 bits (py -3-64)."
-        ),
-    )
-    args = parser.parse_args()
+def discover_pythons() -> list:
+    """Lista los Pythons instalados via el launcher `py` (Windows).
 
-    if args.check:
-        print(f"{args.check}: {pe_arch(args.check)}")
+    Devuelve una lista de dicts: {tag, bits, version(2-tupla)}. Vacía si el
+    launcher `py` no está disponible. Tolera los formatos `-3.12-64` y
+    `-V:3.12-64`` del output de `py -0p`.
+    """
+    try:
+        proc = subprocess.run(["py", "-0p"], capture_output=True, text=True)
+    except (OSError, FileNotFoundError):
+        return []
+    if proc.returncode != 0:
+        return []
+    found = []
+    pat = re.compile(r"-V?:(\d+)\.(\d+)(?:-(\d+))?")
+    for line in proc.stdout.splitlines():
+        line = line.strip().lstrip("*").strip()
+        if not line:
+            continue
+        m = pat.search(line)
+        if not m:
+            continue
+        major, minor = int(m.group(1)), int(m.group(2))
+        bits = m.group(3) or ""
+        # recomponer el tag exacto que espera `py`: -3.8-32 / -3.13-64
+        if bits:
+            tag = f"-{major}.{minor}-{bits}"
+        else:
+            tag = f"-{major}.{minor}"
+        found.append({"tag": tag, "bits": bits, "version": (major, minor)})
+    return found
+
+
+def find_python(pythons: list, bits: str, min_version=(3, 8)) -> str | None:
+    """Elige un tag de `py` para la arquitectura y minimo de version pedidos.
+
+    Prefiere versiones mas viejas de la misma arquitectura: para el exe win7
+    (x86) se quiere Python 3.8 (la ultima que soporta Windows 7), no uno mas
+    nuevo que romperia esa compatibilidad.
+    """
+    candidates = [p for p in pythons if p["bits"] == bits and p["version"] >= min_version]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda p: p["version"])
+    return candidates[0]["tag"]
+
+
+def _spawn(tag: str, args: list) -> None:
+    """Re-invoca este mismo script con el Python indicado por `py <tag>`."""
+    cmd = ["py", tag, os.path.join(PROJECT_ROOT, "scripts", "build_windows.py"), *args]
+    print(f"\n== Delegando a Python {tag} ==")
+    result = subprocess.run(cmd, cwd=PROJECT_ROOT)
+    if result.returncode != 0:
+        raise SystemExit(f"La compilacion con Python {tag} fallo (ver arriba)")
+
+
+def orchestrate(args) -> None:
+    """Orquestra la compilacion de varias arquitecturas desde un solo comando.
+
+    Solo tiene sentido en Windows con el launcher `py`. Compila la variante
+    moderna de 64 bits (siempre) y, si se pide `--win7`, ademas la variante de
+    maxima compatibilidad con Windows 7 de 32 bits (Python 3.8 x86).
+    """
+    pythons = discover_pythons()
+    if not pythons:
+        print("No se detecto el launcher `py` de Windows; compilando solo con el Python actual.")
+        run_build(args, "64" if platform.architecture()[0] == "64bit" else "32")
         return
 
-    running_bits = "64" if platform.architecture()[0] == "64bit" else "32"
-    if args.bits and args.bits != running_bits:
-        raise SystemExit(
-            f"El Python que ejecuta este script es de {running_bits} bits ({ARCH}), "
-            f"pero se pidio --bits {args.bits}. Compilalo con el Python del mismo "
-            f"bitness (py -3-{args.bits} scripts\\build_windows.py)."
-        )
-    bits = args.bits or running_bits
+    # Variante moderna: 64 bits.
+    tag64 = find_python(pythons, "64", (3, 9))
+    if tag64:
+        _spawn(tag64, ["--bits", "64", "--dest", args.dest, "--spawned"])
+    else:
+        print("No hay Python de 64 bits con `py`; se omite la variante moderna.")
 
+    # Variante win7 (max compat): 32 bits con Python 3.8.
+    if args.win7:
+        tag32 = find_python(pythons, "32", (3, 8))
+        if tag32:
+            _spawn(tag32, ["--bits", "32", "--dest", args.dest, "--spawned"])
+        else:
+            print(
+                "No se encontro un Python 3.8 de 32 bits en `py`. Instalalo y "
+                "volve a correr con --win7, o compila manualmente:\n"
+                "  py -3.8-32 scripts\\build_windows.py --bits 32"
+            )
+
+
+def run_build(args, bits: str) -> None:
+    """Compila la arquitectura indicada con el Python que ejecuta este script."""
     ensure_dependencies()
 
     dist_dir = os.path.join(PROJECT_ROOT, "dist-windows")
@@ -224,6 +278,65 @@ def main() -> None:
     shutil.copy2(db, os.path.join(args.dest, "data"))
 
     print(f"== Listo. Ejecutables y DB en: {args.dest} ==")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Compila AltosRoca para Windows e inspecciona arquitectura.")
+    parser.add_argument(
+        "--dest",
+        default=r"C:\altos roca\dist-windows",
+        help="Carpeta destino de los exe y la DB",
+    )
+    parser.add_argument(
+        "--check",
+        metavar="EXE",
+        help="Solo inspecciona la arquitectura de un .exe y sale sin compilar.",
+    )
+    parser.add_argument(
+        "--bits",
+        choices=["32", "64"],
+        help=(
+            "Arquitectura requerida del .exe. Usa el Python actual. Si no se da, "
+            "en Windows orquesta la compilacion de 64 bits (y de 32 bits si se "
+            "pasa --win7) usando el launcher `py`."
+        ),
+    )
+    parser.add_argument(
+        "--win7",
+        action="store_true",
+        help=(
+            "Ademas de la variante moderna de 64 bits, compilar la de maxima "
+            "compatibilidad con Windows 7 de 32 bits (Python 3.8 x86)."
+        ),
+    )
+    parser.add_argument(
+        "--spawned",
+        action="store_true",
+        help="Uso interno: invocado por el orquestador con `py <tag>`; no volver a orquestar.",
+    )
+    args = parser.parse_args()
+
+    if args.check:
+        print(f"{args.check}: {pe_arch(args.check)}")
+        return
+
+    running_bits = "64" if platform.architecture()[0] == "64bit" else "32"
+
+    # Modo orquestador (solo Windows): sin --bits explícito y no invocado por otro py.
+    if not args.bits and not args.spawned and os.name == "nt":
+        orchestrate(args)
+        return
+
+    if args.bits and args.bits != running_bits:
+        raise SystemExit(
+            f"El Python que ejecuta este script es de {running_bits} bits ({ARCH}), "
+            f"pero se pidio --bits {args.bits}. Compilalo con el Python del mismo "
+            f"bitness (py -3-{args.bits} scripts\\build_windows.py), o usalo sin "
+            f"--bits para que el script orqueste solo."
+        )
+    bits = args.bits or running_bits
+    run_build(args, bits)
 
 
 if __name__ == "__main__":

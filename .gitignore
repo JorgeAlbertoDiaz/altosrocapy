@@ -7,3 +7,8 @@ data/
 build/tmp/
 dist-windows/
 dist/
+# Specs auto-generados por PyInstaller para los builds por arquitectura
+# (AltosRoca-64.spec / AltosRoca-32.spec). Los specs manuales versionados
+# (AltosRoca.spec, build/app.spec) se siguen trackeando.
+*-32.spec
+*-64.spec
