@@ -417,6 +417,15 @@ class ConsultarSociosWindow(tk.Toplevel):
         )
         self.btn_pagar.place(x=10, y=130, width=100, height=32)
 
+        # EDITAR button
+        self.btn_editar = tk.Button(
+            frm_info, text="Editar", bg="#888", fg="#FFF",
+            font=("Helvetica", 9, "bold"), relief="flat",
+            activebackground="#666", activeforeground="#FFF",
+            cursor="hand2", command=self._on_editar, state="disabled",
+        )
+        self.btn_editar.place(x=120, y=130, width=100, height=32)
+
         # === RIGHT COLUMN (40%) ===
         right = tk.Frame(self, bg=BG)
         right.place(x=610, y=52, width=W - 610 - PAD, height=H - 52 - 48)
@@ -566,6 +575,7 @@ class ConsultarSociosWindow(tk.Toplevel):
             messagebox.showinfo("Error", "Socio no encontrado.", parent=self)
             return
         self.current_socio = socio
+        self.btn_editar.configure(state="normal")
         self._populate(socio)
 
     def _populate(self, s):
@@ -703,6 +713,22 @@ class ConsultarSociosWindow(tk.Toplevel):
         except ImportError:
             import registrar_cobros
         win = registrar_cobros.open_window(self, socio_id=s["idSocio"])
+        self.wait_window(win)
+        if self.current_socio:
+            self._load_and_show(self.current_socio["idSocio"])
+
+    def _on_editar(self):
+        """Open Registrar/Editar Socio window for the current socio."""
+        if not self.current_socio:
+            messagebox.showinfo("Editar", "No hay socio seleccionado.", parent=self)
+            return
+
+        s = self.current_socio
+        try:
+            from app import registrar_socio
+        except ImportError:
+            import registrar_socio
+        win = registrar_socio.open_window(self, socio_id=s["idSocio"])
         self.wait_window(win)
         if self.current_socio:
             self._load_and_show(self.current_socio["idSocio"])

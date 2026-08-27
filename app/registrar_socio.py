@@ -105,48 +105,106 @@ def _load_plans():
         conn.close()
 
 
-def _save_socio(data):
-    """Insert a new socio into tbSocios. Returns the new idSocio."""
+def _load_socio(id_socio):
+    """Load a socio's full record. Returns a dict or None."""
     conn = db.get_connection()
     try:
-        id_socio = _next_id("tbSocios", "idSocio")
-        ahora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.000")
-
-        conn.execute(
-            "INSERT INTO tbSocios "
-            "(idSocio, NroInscripcion, Apellidos, Nombres, Documento, Sexo, "
+        row = conn.execute(
+            "SELECT idSocio, NroInscripcion, Apellidos, Nombres, Documento, Sexo, "
             " FecNac, Edad, Domicilio, Localidad, ObraSocial, Provincia, "
             " TelefonoUrgencia, Telefono, Email, InformacionMedica, AlergicoA, "
-            " Medicacion, Altura, Peso, Estado, FechaAlta, id_Plan, Ocupacion, "
-            " Password) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
-            " '1', ?, ?, ?, '')",
-            (
-                id_socio,
-                data.get("nro_inscripcion", ""),
-                data.get("apellidos", ""),
-                data.get("nombres", ""),
-                data.get("documento", ""),
-                data.get("sexo", ""),
-                data.get("fec_nac", ""),
-                data.get("edad", ""),
-                data.get("domicilio", ""),
-                data.get("localidad", ""),
-                data.get("obra_social", ""),
-                data.get("provincia", ""),
-                data.get("tel_urgencia", ""),
-                data.get("telefono", ""),
-                data.get("email", ""),
-                data.get("info_medica", ""),
-                data.get("alergico", ""),
-                data.get("medicacion", ""),
-                data.get("altura", ""),
-                data.get("peso", ""),
-                ahora,
-                data.get("id_plan", ""),
-                data.get("ocupacion", ""),
-            ),
-        )
+            " Medicacion, Altura, Peso, Estado, FechaAlta, FechaBaja, Password, "
+            " id_Plan, Ocupacion, pathImage "
+            "FROM tbSocios WHERE idSocio = ?",
+            (str(id_socio),),
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def _save_socio(data, socio_id=None):
+    """Insert (socio_id None) or update (socio_id given) a socio.
+
+    En edición NUNCA se tocan: idSocio, NroInscripcion, EStado, FechaAlta,
+    FechaBaja, Password (campos de sistema). Devuelve el idSocio.
+    """
+    conn = db.get_connection()
+    try:
+        if socio_id is None:
+            # ── ALTA: INSERT con id auto-generado ──
+            id_socio = _next_id("tbSocios", "idSocio")
+            ahora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.000")
+            conn.execute(
+                "INSERT INTO tbSocios "
+                "(idSocio, NroInscripcion, Apellidos, Nombres, Documento, Sexo, "
+                " FecNac, Edad, Domicilio, Localidad, ObraSocial, Provincia, "
+                " TelefonoUrgencia, Telefono, Email, InformacionMedica, AlergicoA, "
+                " Medicacion, Altura, Peso, Estado, FechaAlta, id_Plan, Ocupacion, "
+                " Password) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+                " '1', ?, ?, ?, '')",
+                (
+                    id_socio,
+                    data.get("nro_inscripcion", ""),
+                    data.get("apellidos", ""),
+                    data.get("nombres", ""),
+                    data.get("documento", ""),
+                    data.get("sexo", ""),
+                    data.get("fec_nac", ""),
+                    data.get("edad", ""),
+                    data.get("domicilio", ""),
+                    data.get("localidad", ""),
+                    data.get("obra_social", ""),
+                    data.get("provincia", ""),
+                    data.get("tel_urgencia", ""),
+                    data.get("telefono", ""),
+                    data.get("email", ""),
+                    data.get("info_medica", ""),
+                    data.get("alergico", ""),
+                    data.get("medicacion", ""),
+                    data.get("altura", ""),
+                    data.get("peso", ""),
+                    ahora,
+                    data.get("id_plan", ""),
+                    data.get("ocupacion", ""),
+                ),
+            )
+        else:
+            # ── EDICIÓN: UPDATE, no tocar campos de sistema ──
+            id_socio = str(socio_id)
+            conn.execute(
+                "UPDATE tbSocios SET "
+                " Apellidos=?, Nombres=?, Documento=?, Sexo=?, FecNac=?, Edad=?, "
+                " Domicilio=?, Localidad=?, ObraSocial=?, Provincia=?, "
+                " TelefonoUrgencia=?, Telefono=?, Email=?, InformacionMedica=?, "
+                " AlergicoA=?, Medicacion=?, Altura=?, Peso=?, id_Plan=?, "
+                " Ocupacion=? "
+                "WHERE idSocio=?",
+                (
+                    data.get("apellidos", ""),
+                    data.get("nombres", ""),
+                    data.get("documento", ""),
+                    data.get("sexo", ""),
+                    data.get("fec_nac", ""),
+                    data.get("edad", ""),
+                    data.get("domicilio", ""),
+                    data.get("localidad", ""),
+                    data.get("obra_social", ""),
+                    data.get("provincia", ""),
+                    data.get("tel_urgencia", ""),
+                    data.get("telefono", ""),
+                    data.get("email", ""),
+                    data.get("info_medica", ""),
+                    data.get("alergico", ""),
+                    data.get("medicacion", ""),
+                    data.get("altura", ""),
+                    data.get("peso", ""),
+                    data.get("id_plan", ""),
+                    data.get("ocupacion", ""),
+                    id_socio,
+                ),
+            )
         conn.commit()
         return id_socio
     finally:
@@ -156,21 +214,29 @@ def _save_socio(data):
 # ── Main Window ───────────────────────────────────────────────────────────
 
 class RegistrarSocioWindow(tk.Toplevel):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, socio_id=None):
         super().__init__(parent)
-        self.title("Registrar Socio")
+        self.title("Editar Socio" if socio_id else "Registrar Socio")
         self.geometry(f"{W}x{H}")
         self.resizable(False, False)
         self.configure(bg=BG)
         self.bind("<Escape>", lambda _: self.destroy())
 
+        self.socio_id = str(socio_id) if socio_id else None
         self._plans = _load_plans()
 
         self._build()
-        self._prefill_ids()
 
-        # Documento gets focus
-        self.entry_doc.focus_set()
+        if self.socio_id:
+            self._load_existing()
+        else:
+            self._prefill_ids()
+
+        if self.socio_id:
+            self.combo_plan.focus_set()
+        else:
+            # Documento gets focus
+            self.entry_doc.focus_set()
 
     # ── Build ─────────────────────────────────────────────────────────────
 
@@ -398,6 +464,104 @@ class RegistrarSocioWindow(tk.Toplevel):
         self.entry_nro.insert(0, next_nro)
         self.entry_nro.configure(state="readonly")
 
+    # ── Load existing socio (edit mode) ──────────────────────────────────
+
+    def _load_existing(self):
+        socio = _load_socio(self.socio_id)
+        if socio is None:
+            messagebox.showerror(
+                "Error",
+                f"Socio ID {self.socio_id} no encontrado.\n"
+                "La edición se cerrará.")
+            self.destroy()
+            return
+
+        data = socio
+        self.entry_doc.delete(0, "end")
+        self.entry_doc.insert(0, data.get("Documento") or "")
+
+        self.entry_nro.configure(state="normal")
+        self.entry_nro.delete(0, "end")
+        self.entry_nro.insert(0, data.get("NroInscripcion") or "")
+        self.entry_nro.configure(state="readonly")
+
+        self.entry_apellido.delete(0, "end")
+        self.entry_apellido.insert(0, data.get("Apellidos") or "")
+
+        # Fecha nacimiento
+        fnac = data.get("FecNac") or ""
+        if self.dt_fnac is not None:
+            try:
+                d = datetime.datetime.strptime(str(fnac)[:10], "%Y-%m-%d").date()
+                self.dt_fnac.set_date(d)
+            except (ValueError, TypeError):
+                pass
+        else:
+            self.entry_fnac.delete(0, "end")
+            if fnac:
+                try:
+                    d = datetime.datetime.strptime(str(fnac)[:10], "%Y-%m-%d").date()
+                    self.entry_fnac.insert(0, d.strftime("%d/%m/%Y"))
+                except (ValueError, TypeError):
+                    pass
+
+        self.entry_nombre.delete(0, "end")
+        self.entry_nombre.insert(0, data.get("Nombres") or "")
+        self.entry_ocupacion.delete(0, "end")
+        self.entry_ocupacion.insert(0, data.get("Ocupacion") or "")
+
+        # Sexo
+        sexo = data.get("Sexo") or ""
+        valores_sexo = ["Masculino", "Femenino", "Otro"]
+        self.sexo_var.set(sexo if sexo in valores_sexo
+                          else ({'M': 'Masculino', 'F': 'Femenino'}.get(sexo, "")))
+
+        # Datos de contacto
+        self._set_entry(self.entry_domicilio, data.get("Domicilio"))
+        self._set_entry(self.entry_email, data.get("Email"))
+        self._set_entry(self.entry_telefono, data.get("Telefono"))
+        self._set_entry(self.entry_localidad, data.get("Localidad"))
+        self._set_entry(self.entry_obra_social, data.get("ObraSocial"))
+        self._set_entry(self.entry_tel_urgencia, data.get("TelefonoUrgencia"))
+
+        # Datos médicos
+        self._set_entry(self.entry_info_medica, data.get("InformacionMedica"))
+        self._set_entry(self.entry_alergico, data.get("AlergicoA"))
+        self._set_entry(self.entry_medicacion, data.get("Medicacion"))
+        self._set_entry(self.entry_altura, data.get("Altura"))
+        self._set_entry(self.entry_peso, data.get("Peso"))
+        self._recalc_imc()
+
+        # Datos socio — plan
+        id_plan = data.get("id_Plan")
+        idx = next((i for i, (pid, _) in enumerate(self._plans)
+                    if str(pid) == str(id_plan)), -1)
+        if idx >= 0:
+            self.combo_plan.current(idx)
+        else:
+            self.plan_var.set("")
+
+        # Socio Desde (FechaAlta) — solo se muestra, no se edita
+        alta = data.get("FechaAlta") or ""
+        if self.dt_alta is not None:
+            try:
+                d = datetime.datetime.strptime(str(alta)[:10], "%Y-%m-%d").date()
+                self.dt_alta.set_date(d)
+            except (ValueError, TypeError):
+                pass
+        else:
+            self.entry_fecha_alta.delete(0, "end")
+            if alta:
+                try:
+                    d = datetime.datetime.strptime(str(alta)[:10], "%Y-%m-%d").date()
+                    self.entry_fecha_alta.insert(0, d.strftime("%d/%m/%Y"))
+                except (ValueError, TypeError):
+                    pass
+
+    def _set_entry(self, entry, value):
+        entry.delete(0, "end")
+        entry.insert(0, value or "")
+
     # ── IMC ───────────────────────────────────────────────────────────────
 
     def _recalc_imc(self):
@@ -502,22 +666,29 @@ class RegistrarSocioWindow(tk.Toplevel):
         }
 
         try:
-            id_socio = _save_socio(data)
+            id_socio = _save_socio(data, self.socio_id)
         except Exception as e:
             messagebox.showerror("Error", f"Error al guardar: {e}")
             return
 
-        messagebox.showinfo(
-            "Éxito",
-            f"Socio registrado exitosamente.\n\n"
-            f"ID: {id_socio}\n"
-            f"Documento: {doc}\n"
-            f"Nombre: {apellido}, {nombre}")
+        if self.socio_id:
+            messagebox.showinfo(
+                "Éxito",
+                f"Socio actualizado exitosamente.\n\n"
+                f"ID: {id_socio}\n"
+                f"Nombre: {apellido}, {nombre}")
+        else:
+            messagebox.showinfo(
+                "Éxito",
+                f"Socio registrado exitosamente.\n\n"
+                f"ID: {id_socio}\n"
+                f"Documento: {doc}\n"
+                f"Nombre: {apellido}, {nombre}")
         self.destroy()
 
 
-def open_window(parent=None):
-    return RegistrarSocioWindow(parent)
+def open_window(parent=None, socio_id=None):
+    return RegistrarSocioWindow(parent, socio_id=socio_id)
 
 
 if __name__ == "__main__":
