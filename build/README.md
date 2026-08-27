@@ -31,20 +31,48 @@ dist-windows/
 
 Credenciales de prueba (tabla `Login`): `Admin / Lola88mora`, `MARCO / MKACHA1`, etc.
 
+## Máxima compatibilidad: Windows 7 x86
+
+Si el exe debe correr incluso en **Windows 7 de 32 bits** (p. ej. AMD Sempron),
+la regla es:
+
+- **Python de build obligatorio: 3.8** (la última versión que soporta Windows 7;
+  3.9+ lo dejó de soportar). Un exe hecho con 3.9+ no arranca en una PC con
+  Windows 7.
+- **Exe de 32 bits** (x86): corre en Windows 7/8/10/11, tanto en equipos de 32
+  como de 64 bits. Un exe de 64 bits solo corre en Windows de 64 bits.
+
+El helper `scripts\build_windows.py` detecta el Python y, si es 3.8, fuerza
+versiones de dependencias compatibles con 3.8 (p. ej. `fpdf2<2.8.4`, ya que
+fpdf2 >= 2.8.4 dejó de soportar Python 3.8).
+
+En Windows local (necesitás un Python 3.8 de 32 bits instalado):
+
+```
+py -3.8-32 -m pip install pyinstaller "fpdf2<2.8.4" "openpyxl<4" tkcalendar
+py -3.8-32 scripts\build_windows.py --dest "C:\altos roca\dist-windows"
+```
+
+> El workflow de GitHub Actions ya produce ambas variantes automáticamente al
+> taggear `v*` o con *Run workflow*: `AltosRoca-modern-x64.zip` (Windows 10/11)
+> y `AltosRoca-win7-x86.zip` (máxima compatibilidad, hasta Windows 7 x86).
+
+> Nota sobre Windows 7: Python 3.5+ usa el *Universal CRT*, que en Windows 7
+> puede requerir la actualización KB2999226 si la PC no está al día. Si da el
+> error "no es compatible con la versión de Windows", instalar primero esa
+> actualización de Windows Update en la máquina de destino.
+
 ## Ejecutables de 32 y 64 bits (PCs viejas)
 
 Un Windows de **32 bits no puede ejecutar un exe de 64 bits** (da el error
 "No se puede ejecutar esta aplicación en el equipo"). Para que el programa
-corra también en PCs viejas (p. ej. AMD Sempron con Windows 32-bit), hay que
-generar **las dos arquitecturas**. PyInstaller no es cross-compiler: el exe
-toma la arquitectura del Python que lo compila.
+corra también en PCs viejas, generar las dos arquitecturas. PyInstaller no es
+cross-compiler: el exe toma la arquitectura del Python que lo compila.
 
 Usar el helper `scripts\build_windows.py`, una vez con cada Python:
 
 ```
-:: 1) Instalar un Python de 32 bits y otro de 64 bits (Python 3.12+)
 py -0p                                    :: ver los Pythons instalados
-pip install pyinstaller                    :: en cada Python, o deja que el helper lo haga
 
 :: 2) Compilar las dos arquitecturas al mismo destino
 py -3-32 scripts\build_windows.py --dest "C:\altos roca\dist-windows"

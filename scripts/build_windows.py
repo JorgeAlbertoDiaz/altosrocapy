@@ -5,7 +5,9 @@
 #   py scripts\build_windows.py --bits 64 --dest "D:\mi-carpeta"  # exe de 64 bits
 #   py scripts\build_windows.py --check dist-windows\AltosRoca.exe
 #
-# Requisitos: Python 3.12+ y PyInstaller (`py -m pip install pyinstaller`).
+# Requisitos: PyInstaller (`py -m pip install pyinstaller`). Para exe moderno
+# usar Python 3.12+; para compatibilidad con Windows 7 usar Python 3.8 (la
+# ultima que lo soporta) y el script forza las dependencias compatibles.
 #
 # IMPORTANTE (arquitectura): PyInstaller NO es cross-compiler. La arquitectura
 # del .exe resultante la fija el intérprete de Python que ejecuta este script:
@@ -51,6 +53,27 @@ REQUIRED_IMPORTS = {
 }
 
 
+def _pins() -> dict:
+    """Intentos de instalacion por version de Python (pip con pin de version).
+
+    La app debe poder correr en Windows 7 x86, lo que obliga a compilar con
+    Python 3.8 (3.9+ dejo de soportar Windows 7). Varias libs dejaron de
+    soportar 3.8 en versiones recientes, asi que en 3.8 se fuerzan versiones
+    compatibles:
+      - fpdf2 >= 2.8.4 dejo de soportar Python 3.8  -> fpdf2<2.8.4
+      - openpyxl 3.1.x soporta Python 3.8            -> openpyxl<4
+    """
+    import sys
+    if sys.version_info[:2] == (3, 8):
+        return {
+            "pyinstaller": None,
+            "openpyxl": "openpyxl<4",
+            "fpdf2": "fpdf2<2.8.4",
+            "tkcalendar": None,
+        }
+    return {k: None for k in REQUIRED_IMPORTS}
+
+
 def ensure_dependencies() -> None:
     """Install any missing package into THIS interpreter.
 
@@ -68,9 +91,14 @@ def ensure_dependencies() -> None:
             missing.append(package)
     if not missing:
         return
-    print(f"== Instalando dependencias faltantes: {', '.join(missing)} ==")
+    pins = _pins()
+    to_install = []
+    for package in missing:
+        spec = pins.get(package)
+        to_install.append(spec if spec else package)
+    print(f"== Instalando dependencias faltantes: {', '.join(to_install)} ==")
     result = subprocess.run(
-        [sys.executable, "-m", "pip", "install", "--quiet", *missing],
+        [sys.executable, "-m", "pip", "install", "--quiet", *to_install],
     )
     if result.returncode != 0:
         raise SystemExit("Fallo la instalacion de dependencias con pip")

@@ -11,22 +11,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86, x64]
+        # modern-x64 : para PCs modernas de 64 bits (Windows 10/11).
+        # win7-x86   : maxima compatibilidad, corre hasta en Windows 7 de 32
+        #              bits (y en cualquier Windows 32/64). Python 3.8 es la
+        #              ultima version que soporta Windows 7.
+        include:
+          - flavor: modern
+            arch: x64
+            python: "3.13"
+          - flavor: win7
+            arch: x86
+            python: "3.8"
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python }}
           architecture: ${{ matrix.arch }}
 
       - name: Install PyInstaller
-        run: pip install pyinstaller openpyxl fpdf2 tkcalendar
+        shell: pwsh
+        run: |
+          if ('${{ matrix.python }}' -eq '3.8') {
+            # fpdf2 >= 2.8.4 dejo de soportar Python 3.8 (obligatorio para Win7)
+            python -m pip install pyinstaller "fpdf2<2.8.4" "openpyxl<4" tkcalendar
+          } else {
+            python -m pip install pyinstaller openpyxl fpdf2 tkcalendar
+          }
 
       # build_windows.py valida que el Python (y por tanto el exe) coincida con
       # la arquitectura pedida; genera AltosRoca-<bits>.exe y AltosRoca.exe nativo.
-      - name: Build (${{ matrix.arch }})
+      - name: Build (${{ matrix.flavor }}-${{ matrix.arch }})
         shell: pwsh
         run: |
           $bits = if ('${{ matrix.arch }}' -eq 'x86') { '32' } else { '64' }
@@ -37,12 +54,12 @@ jobs:
         run: |
           $bits = if ('${{ matrix.arch }}' -eq 'x86') { '32' } else { '64' }
           $exe = Get-ChildItem "_out/AltosRoca-$bits*.exe" | Select-Object -First 1
-          Compress-Archive -Path $exe.FullName, "_out/data/altosroca.db" -DestinationPath "_out/AltosRoca-${{ matrix.arch }}.zip" -Force
+          Compress-Archive -Path $exe.FullName, "_out/data/altosroca.db" -DestinationPath "_out/AltosRoca-${{ matrix.flavor }}-${{ matrix.arch }}.zip" -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AltosRoca-${{ matrix.arch }}
+          name: AltosRoca-${{ matrix.flavor }}-${{ matrix.arch }}
           path: |
             _out/*.exe
             _out/*.zip
