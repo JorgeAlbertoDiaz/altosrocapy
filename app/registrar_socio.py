@@ -6,6 +6,7 @@ Distribución por regiones con coordenadas absolutas tipo VB.NET.
 
 import calendar
 import datetime
+import os
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -18,6 +19,22 @@ try:
     from app import db
 except ImportError:
     import db
+
+try:
+    from app import socios_foto
+except ImportError:
+    import socios_foto
+
+try:
+    import cv2
+except ImportError:
+    cv2 = None
+
+try:
+    from PIL import Image, ImageTk
+except ImportError:
+    Image = None
+    ImageTk = None
 
 # ── Constants ─────────────────────────────────────────────────────────────
 
@@ -141,9 +158,9 @@ def _save_socio(data, socio_id=None):
                 " FecNac, Edad, Domicilio, Localidad, ObraSocial, Provincia, "
                 " TelefonoUrgencia, Telefono, Email, InformacionMedica, AlergicoA, "
                 " Medicacion, Altura, Peso, Estado, FechaAlta, id_Plan, Ocupacion, "
-                " Password) "
+                " Password, pathImage) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
-                " '1', ?, ?, ?, '')",
+                " '1', ?, ?, ?, '', ?)",
                 (
                     id_socio,
                     data.get("nro_inscripcion", ""),
@@ -168,6 +185,7 @@ def _save_socio(data, socio_id=None):
                     ahora,
                     data.get("id_plan", ""),
                     data.get("ocupacion", ""),
+                    data.get("pathImage", ""),
                 ),
             )
         else:
@@ -179,7 +197,7 @@ def _save_socio(data, socio_id=None):
                 " Domicilio=?, Localidad=?, ObraSocial=?, Provincia=?, "
                 " TelefonoUrgencia=?, Telefono=?, Email=?, InformacionMedica=?, "
                 " AlergicoA=?, Medicacion=?, Altura=?, Peso=?, id_Plan=?, "
-                " Ocupacion=? "
+                " Ocupacion=?, pathImage=? "
                 "WHERE idSocio=?",
                 (
                     data.get("apellidos", ""),
@@ -202,6 +220,7 @@ def _save_socio(data, socio_id=None):
                     data.get("peso", ""),
                     data.get("id_plan", ""),
                     data.get("ocupacion", ""),
+                    data.get("pathImage", ""),
                     id_socio,
                 ),
             )
@@ -224,6 +243,9 @@ class RegistrarSocioWindow(tk.Toplevel):
 
         self.socio_id = str(socio_id) if socio_id else None
         self._plans = _load_plans()
+        self._foto_rel = None
+        self._foto_doc = None
+        self._foto_origen = None
 
         self._build()
 
@@ -558,6 +580,27 @@ class RegistrarSocioWindow(tk.Toplevel):
                 except (ValueError, TypeError):
                     pass
 
+        # Foto
+        path_img = data.get("pathImage") or ""
+        doc_actual = data.get("Documento") or ""
+        if path_img:
+            photo = socios_foto.cargar_para_tk(path_img, 125)
+            if photo is not None:
+                self._foto_rel = path_img
+                self._foto_doc = doc_actual
+                self._foto_origen = socios_foto.foto_abs_path(path_img)
+                self._aplicar_foto(path_img)
+            else:
+                self._foto_rel = None
+                self._foto_doc = doc_actual
+                self._foto_origen = None
+                self.lbl_foto.configure(text="👤")
+        else:
+            self._foto_rel = None
+            self._foto_doc = doc_actual
+            self._foto_origen = None
+            self.lbl_foto.configure(text="👤")
+
     def _set_entry(self, entry, value):
         entry.delete(0, "end")
         entry.insert(0, value or "")
@@ -569,13 +612,157 @@ class RegistrarSocioWindow(tk.Toplevel):
         self.lbl_imc_val.configure(text=str(imc) if imc is not None else "0")
         self.lbl_imc_cls.configure(text=cls)
 
-    # ── Photo (placeholder) ───────────────────────────────────────────────
+    # ── Photo ────────────────────────────────────────────────────────────
 
     def _capture_photo(self):
-        messagebox.showinfo(
-            "Foto",
-            "Función de captura de foto no disponible en esta versión.\n"
-            "Se utilizará la silueta por defecto.")
+        dial = tk.Toplevel(self)
+        dial.title("Foto del Socio")
+        dial.geometry("280x120")
+        dial.resizable(False, False)
+        dial.configure(bg=BG)
+        dial.transient(self)
+
+        def _elige(fn):
+            dial.destroy()
+            fn()
+
+        tk.Label(dial, text="¿Cómo querés cargar la foto?",
+                 bg=BG, font=FN, fg=FG).pack(pady=(15, 10))
+        btn_frame = tk.Frame(dial, bg=BG)
+        btn_frame.pack()
+        tk.Button(btn_frame, text="Desde archivo", bg=BTN_SAVE, fg="#FFF",
+                  font=FN_B, relief="flat",
+                  command=lambda: _elige(self._seleccionar_foto_archivo),
+                  ).pack(side="left", padx=5)
+        tk.Button(btn_frame, text="Cámara", bg="#888", fg="#FFF",
+                  font=FN_B, relief="flat",
+                  command=lambda: _elige(self._capturar_foto_camara),
+                  ).pack(side="left", padx=5)
+        tk.Button(btn_frame, text="Quitar foto", bg="#A33", fg="#FFF",
+                  font=FN_B, relief="flat",
+                  command=lambda: _elige(self._quitar_foto),
+                  ).pack(side="left", padx=5)
+        dial.grab_set()
+        dial.wait_window()
+
+    def _seleccionar_foto_archivo(self):
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(
+            title="Seleccionar foto",
+            filetypes=[("Imágenes", "*.jpg *.jpeg *.png *.bmp"),
+                       ("Todos los archivos", "*.*")],
+        )
+        if not path:
+            return
+        doc = self.entry_doc.get().strip()
+        path_rel = socios_foto.estandarizar_y_guardar(path, doc)
+        if path_rel is None:
+            messagebox.showerror(
+                "Error", "No se pudo procesar la imagen seleccionada.\n"
+                         "Verificá que el Documento sea numérico y el archivo válido.")
+            return
+        self._foto_rel = path_rel
+        self._foto_doc = doc
+        self._foto_origen = path  # fuente original (path absoluto del archivo)
+        self._aplicar_foto(path_rel)
+
+    def _capturar_foto_camara(self):
+        if cv2 is None:
+            messagebox.showwarning("Cámara", "No hay soporte de OpenCV (cv2) instalado.")
+            return
+        cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            messagebox.showwarning("Cámara", "No se pudo abrir la cámara.")
+            return
+
+        win = tk.Toplevel(self)
+        win.title("Capturar Foto")
+        win.resizable(False, False)
+        win.configure(bg="#000")
+        win.transient(self)
+        lbl = tk.Label(win, bg="#000")
+        lbl.pack()
+        btn = tk.Button(win, text="Capturar", bg=BTN_SAVE, fg="#FFF", font=FN_B,
+                        relief="flat")
+        btn.pack(pady=5)
+
+        state = {"capturando": True, "frame": None}
+
+        def _capturar():
+            if state["frame"] is None:
+                return
+            state["capturando"] = False
+            cap.release()
+            win.destroy()
+            self._procesar_frame_camara(state["frame"])
+
+        btn.configure(command=_capturar)
+
+        def _update():
+            if not state["capturando"]:
+                return
+            ret, frame = cap.read()
+            if ret:
+                state["frame"] = frame
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                img = Image.fromarray(rgb)
+                w, h = img.size
+                target = 320
+                scale = target / max(w, h)
+                img2 = img.resize(
+                    (int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+                tkimg = ImageTk.PhotoImage(img2)
+                lbl.configure(image=tkimg)
+                lbl.image = tkimg
+            win.after(30, _update)
+
+        def _cerrar():
+            state["capturando"] = False
+            cap.release()
+            win.destroy()
+
+        win.protocol("WM_DELETE_WINDOW", _cerrar)
+        _update()
+
+    def _procesar_frame_camara(self, frame):
+        doc = self.entry_doc.get().strip()
+        import tempfile
+        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        tmp_path = tmp.name
+        tmp.close()
+        try:
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            Image.fromarray(rgb).save(tmp_path)
+            path_rel = socios_foto.estandarizar_y_guardar(tmp_path, doc)
+        finally:
+            if os.path.isfile(tmp_path):
+                os.remove(tmp_path)
+        if path_rel is None:
+            messagebox.showerror(
+                "Error", "No se pudo procesar la foto capturada.\n"
+                         "Verificá que el Documento sea numérico.")
+            return
+        self._foto_rel = path_rel
+        self._foto_doc = doc
+        # fuente original: el archivo ya estandarizado en disco (path absoluto)
+        self._foto_origen = socios_foto.foto_abs_path(path_rel)
+        self._aplicar_foto(path_rel)
+
+    def _quitar_foto(self):
+        self._foto_rel = ""
+        self._foto_doc = None
+        self.lbl_foto.configure(text="👤")
+
+    def _aplicar_foto(self, path_rel):
+        if not path_rel:
+            self.lbl_foto.configure(text="👤")
+            return
+        photo = socios_foto.cargar_para_tk(path_rel, 125)
+        if photo is None:
+            self.lbl_foto.configure(text="👤")
+            return
+        self.lbl_foto.configure(image=photo, text="")
+        self.lbl_foto.image = photo
 
     # ── Save ──────────────────────────────────────────────────────────────
 
@@ -664,6 +851,23 @@ class RegistrarSocioWindow(tk.Toplevel):
             "id_plan": id_plan,
             "ocupacion": self.entry_ocupacion.get().strip(),
         }
+
+        # Foto: estandarizar/guardar con el documento actual del form
+        if socios_foto.digito_carpeta(doc) is None:
+            data["pathImage"] = ""
+        elif self._foto_rel and self._foto_doc == doc:
+            # Documento no cambió: la foto ya está guardada con este nombre.
+            data["pathImage"] = self._foto_rel
+        elif self._foto_origen:
+            # Documento cambió (o foto re-cierta): re-estandarizar desde la
+            # fuente original una sola vez, con el documento final.
+            path_rel = socios_foto.estandarizar_y_guardar(self._foto_origen, doc)
+            data["pathImage"] = path_rel or ""
+            if path_rel:
+                self._foto_rel = path_rel
+                self._foto_doc = doc
+        else:
+            data["pathImage"] = ""
 
         try:
             id_socio = _save_socio(data, self.socio_id)

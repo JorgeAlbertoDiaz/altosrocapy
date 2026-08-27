@@ -17,6 +17,11 @@ try:
 except ImportError:
     import db
 
+try:
+    from app import socios_foto
+except ImportError:
+    import socios_foto
+
 # ── Constants ─────────────────────────────────────────────────────────────
 
 W, H = 1000, 610
@@ -612,17 +617,14 @@ class ConsultarSociosWindow(tk.Toplevel):
         self.lbls["info_medica"].configure(text=s.get("InformacionMedica") or "")
 
         # Photo
-        _draw_silhouette(self.photo_canvas, 125, 125)
         path = s.get("pathImage", "")
-        if path and os.path.isfile(path):
-            try:
-                from PIL import Image, ImageTk
-                img = Image.open(path).resize((125, 125))
-                self._photo_tk = ImageTk.PhotoImage(img)
-                self.photo_canvas.delete("all")
-                self.photo_canvas.create_image(0, 0, anchor="nw", image=self._photo_tk)
-            except Exception:
-                pass
+        photo = socios_foto.cargar_para_tk(path, 125) if path else None
+        if photo is not None:
+            self._photo_tk = photo
+            self.photo_canvas.delete("all")
+            self.photo_canvas.create_image(0, 0, anchor="nw", image=self._photo_tk)
+        else:
+            _draw_silhouette(self.photo_canvas, 125, 125)
 
         # Information panel
         self.lbls_info["socio_desde"].configure(text=_fmt(s.get("FechaAlta")))
