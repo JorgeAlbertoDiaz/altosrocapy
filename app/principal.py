@@ -18,6 +18,7 @@ try:
     from app import historial_cobros
     from app import abm_generico
     from app import admin_cuentas
+    from app import registrar_gastos
     from app.resources import load_logo, apply_app_icon
 except ImportError:  # dev / frozen fallback
     import login
@@ -32,6 +33,7 @@ except ImportError:  # dev / frozen fallback
     import historial_cobros
     import abm_generico
     import admin_cuentas
+    import registrar_gastos
     from resources import load_logo, apply_app_icon
 
 WINDOW_WIDTH = 1366
@@ -53,11 +55,13 @@ MODULES = [
     "Consultar Caja",
     "Historial de Cobros",
     "Registrar Deudas",
+    "Registrar Gastos",
     "Admin Pantalla",
 ]
 
 # Set by on_logout; consumed in main() after the mainloop ends.
 _logout_requested = False
+_current_user = "Admin"
 
 
 def center_window(window: tk.Wm) -> None:
@@ -98,7 +102,7 @@ def build_topbar(window: tk.Tk, usuario: str, font_family: str) -> None:
     m_alta = tk.Menubutton(bar, text="Alta de Datos", bg=COLOR_TOPBAR_BG,
                            fg="#000000")
     menu_alta = tk.Menu(m_alta, tearoff=0)
-    menu_alta.add_command(label="Registrar Deuda", command=_cmd("Registrar Deudas"))
+    menu_alta.add_command(label="Registrar Gastos", command=_cmd("Registrar Gastos"))
     menu_alta.add_separator()
     menu_alta.add_command(label="Planes", command=_cmd("ABM Planes"))
     menu_alta.add_command(label="Formas de Pago",
@@ -193,6 +197,9 @@ def open_module(window: tk.Tk, name: str, font_family: str) -> None:
     if name == "Admin Pantalla":
         admin_cuentas.open_window(window)
         return
+    if name in ("Registrar Gastos", "Registrar Gastos"):
+        registrar_gastos.open_window(window, usuario=_current_user)
+        return
     if name.startswith("ABM "):
         abm_generico.open_window(window, titulo=name[4:])
         return
@@ -245,6 +252,8 @@ def build_main_area(window: tk.Tk, font_family: str) -> None:
 
 
 def build_principal(window: tk.Tk, usuario: str) -> None:
+    global _current_user
+    _current_user = usuario
     available_fonts = {f.lower() for f in tkfont.families()}
     font_family = "Segoe UI" if "segoe ui" in available_fonts else "Helvetica"
 
