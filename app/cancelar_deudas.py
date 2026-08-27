@@ -80,30 +80,30 @@ def _total_deuda(id_socio):
         return 0.0
 
 
-def _cancel_deuda(id_deuda):
+def _cancel_deuda(id_deuda, usuario=""):
     conn = db.get_connection()
     try:
         ahora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.000")
         conn.execute(
-            "UPDATE tb_RegistroDeudas SET Cancelada = '1', FechaCancelacion = ? "
-            "WHERE idDeuda = ?",
-            (ahora, id_deuda),
+            "UPDATE tb_RegistroDeudas SET Cancelada = '1', FechaCancelacion = ?, "
+            "UsuarioCobrador = ? WHERE idDeuda = ?",
+            (ahora, usuario, id_deuda),
         )
         conn.commit()
     finally:
         conn.close()
 
 
-def _cancel_all(id_socio):
+def _cancel_all(id_socio, usuario=""):
     conn = db.get_connection()
     try:
         ahora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.000")
         conn.execute(
-            "UPDATE tb_RegistroDeudas SET Cancelada = '1', FechaCancelacion = ? "
-            "WHERE idSocio = ? "
+            "UPDATE tb_RegistroDeudas SET Cancelada = '1', FechaCancelacion = ?, "
+            "UsuarioCobrador = ? WHERE idSocio = ? "
             "  AND (Cancelada IS NULL OR Cancelada != '1') "
             "  AND (Eliminado IS NULL OR Eliminado != '1')",
-            (ahora, id_socio),
+            (ahora, usuario, id_socio),
         )
         conn.commit()
     finally:
@@ -113,7 +113,7 @@ def _cancel_all(id_socio):
 # ── Main Window ───────────────────────────────────────────────────────────
 
 class CancelarDeudasWindow(tk.Toplevel):
-    def __init__(self, parent=None, socio_id=None):
+    def __init__(self, parent=None, socio_id=None, usuario=None):
         super().__init__(parent)
         self.title("Cancelar Deudas")
         self.geometry(f"{W}x{H}")
@@ -121,6 +121,7 @@ class CancelarDeudasWindow(tk.Toplevel):
         self.configure(bg=BG)
         self.bind("<Escape>", lambda _: self.destroy())
 
+        self.usuario = usuario or ""
         self.socio_id = socio_id
         self._build()
 
@@ -303,7 +304,7 @@ class CancelarDeudasWindow(tk.Toplevel):
             return
 
         try:
-            _cancel_deuda(id_deuda)
+            _cancel_deuda(id_deuda, self.usuario)
         except Exception as e:
             messagebox.showerror("Error", f"Error al cancelar: {e}", parent=self)
             return
@@ -324,7 +325,7 @@ class CancelarDeudasWindow(tk.Toplevel):
             return
 
         try:
-            _cancel_all(self.socio_id)
+            _cancel_all(self.socio_id, self.usuario)
         except Exception as e:
             messagebox.showerror("Error", f"Error al cancelar: {e}", parent=self)
             return
@@ -333,8 +334,8 @@ class CancelarDeudasWindow(tk.Toplevel):
         messagebox.showinfo("Éxito", "Todas las deudas fueron canceladas.", parent=self)
 
 
-def open_window(parent=None, socio_id=None):
-    return CancelarDeudasWindow(parent, socio_id=socio_id)
+def open_window(parent=None, socio_id=None, usuario=None):
+    return CancelarDeudasWindow(parent, socio_id=socio_id, usuario=usuario)
 
 
 if __name__ == "__main__":

@@ -284,8 +284,9 @@ def _register_acceso(conn, id_socio, id_plan):
 # ── Window ────────────────────────────────────────────────────────────────
 
 class ConsultarSociosWindow(tk.Toplevel):
-    def __init__(self, parent=None, socio_id=None):
-        """socio_id: if provided, preload that socio immediately."""
+    def __init__(self, parent=None, socio_id=None, usuario=None):
+        """socio_id: if provided, preload that socio immediately.
+        usuario: logged-in user, passed through to dependent windows."""
         super().__init__(parent)
         self.title("Consultar Socios")
         self.geometry(f"{W}x{H}")
@@ -293,6 +294,7 @@ class ConsultarSociosWindow(tk.Toplevel):
         self.configure(bg=BG)
         self.bind("<Escape>", lambda _: self.destroy())
 
+        self.usuario = usuario or ""
         self.current_socio = None
 
         self._build()
@@ -415,12 +417,12 @@ class ConsultarSociosWindow(tk.Toplevel):
 
         # PAGAR button
         self.btn_pagar = tk.Button(
-            frm_info, text="Pagar", bg=BTN_BLUE, fg="#FFF",
+            frm_info, text="Cobro de cuota", bg=BTN_BLUE, fg="#FFF",
             font=("Helvetica", 9, "bold"), relief="flat",
             activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
             cursor="hand2", command=self._on_pagar,
         )
-        self.btn_pagar.place(x=10, y=130, width=100, height=32)
+        self.btn_pagar.place(x=10, y=130, width=120, height=32)
 
         # EDITAR button
         self.btn_editar = tk.Button(
@@ -429,7 +431,16 @@ class ConsultarSociosWindow(tk.Toplevel):
             activebackground="#666", activeforeground="#FFF",
             cursor="hand2", command=self._on_editar, state="disabled",
         )
-        self.btn_editar.place(x=120, y=130, width=100, height=32)
+        self.btn_editar.place(x=140, y=130, width=90, height=32)
+
+        # VER DEUDAS button (habilitado al cargar socio)
+        self.btn_ver_deudas = tk.Button(
+            frm_info, text="Ver Deudas", bg=BTN_BLUE, fg="#FFF",
+            font=("Helvetica", 9, "bold"), relief="flat",
+            activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
+            cursor="hand2", command=self._on_ver_deudas, state="disabled",
+        )
+        self.btn_ver_deudas.place(x=240, y=130, width=110, height=32)
 
         # === RIGHT COLUMN (40%) ===
         right = tk.Frame(self, bg=BG)
@@ -581,6 +592,7 @@ class ConsultarSociosWindow(tk.Toplevel):
             return
         self.current_socio = socio
         self.btn_editar.configure(state="normal")
+        self.btn_ver_deudas.configure(state="normal")
         self._populate(socio)
 
     def _populate(self, s):
@@ -706,7 +718,7 @@ class ConsultarSociosWindow(tk.Toplevel):
     def _on_pagar(self):
         """Open Registrar Cobros for current socio."""
         if not self.current_socio:
-            messagebox.showinfo("Pagar", "No hay socio seleccionado.", parent=self)
+            messagebox.showinfo("Cobro de cuota", "No hay socio seleccionado.", parent=self)
             return
 
         s = self.current_socio
@@ -714,7 +726,24 @@ class ConsultarSociosWindow(tk.Toplevel):
             from app import registrar_cobros
         except ImportError:
             import registrar_cobros
-        win = registrar_cobros.open_window(self, socio_id=s["idSocio"])
+        win = registrar_cobros.open_window(self, socio_id=s["idSocio"], usuario=self.usuario)
+        self.wait_window(win)
+        if self.current_socio:
+            self._load_and_show(self.current_socio["idSocio"])
+
+    def _on_ver_deudas(self):
+        """Open Registrar Deudas (pre-seleccionado) for current socio."""
+        if not self.current_socio:
+            messagebox.showinfo("Ver Deudas", "No hay socio seleccionado.", parent=self)
+            return
+
+        s = self.current_socio
+        try:
+            from app import registrar_deudas
+        except ImportError:
+            import registrar_deudas
+        win = registrar_deudas.open_window(
+            self, usuario=self.usuario, socio_id=s["idSocio"])
         self.wait_window(win)
         if self.current_socio:
             self._load_and_show(self.current_socio["idSocio"])
@@ -765,8 +794,8 @@ class ConsultarSociosWindow(tk.Toplevel):
         messagebox.showinfo("Ingreso", "Acceso registrado exitosamente.", parent=self)
 
 
-def open_window(parent=None, socio_id=None):
-    return ConsultarSociosWindow(parent, socio_id=socio_id)
+def open_window(parent=None, socio_id=None, usuario=None):
+    return ConsultarSociosWindow(parent, socio_id=socio_id, usuario=usuario)
 
 
 if __name__ == "__main__":

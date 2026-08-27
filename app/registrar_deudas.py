@@ -111,32 +111,32 @@ def _register_deuda(id_socio, fecha, importe, detalle, usuario=""):
         conn.close()
 
 
-def _cancel_deuda(id_deuda):
+def _cancel_deuda(id_deuda, usuario=""):
     """Mark a specific debt as cancelled."""
     conn = db.get_connection()
     try:
         ahora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.000")
         conn.execute(
-            "UPDATE tb_RegistroDeudas SET Cancelada = '1', FechaCancelacion = ? "
-            "WHERE idDeuda = ?",
-            (ahora, id_deuda),
+            "UPDATE tb_RegistroDeudas SET Cancelada = '1', FechaCancelacion = ?, "
+            "UsuarioCobrador = ? WHERE idDeuda = ?",
+            (ahora, usuario, id_deuda),
         )
         conn.commit()
     finally:
         conn.close()
 
 
-def _cancel_all(id_socio):
+def _cancel_all(id_socio, usuario=""):
     """Mark all active debts of a socio as cancelled."""
     conn = db.get_connection()
     try:
         ahora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.000")
         conn.execute(
-            "UPDATE tb_RegistroDeudas SET Cancelada = '1', FechaCancelacion = ? "
-            "WHERE idSocio = ? "
+            "UPDATE tb_RegistroDeudas SET Cancelada = '1', FechaCancelacion = ?, "
+            "UsuarioCobrador = ? WHERE idSocio = ? "
             "  AND (Cancelada IS NULL OR Cancelada != '1') "
             "  AND (Eliminado IS NULL OR Eliminado != '1')",
-            (ahora, id_socio),
+            (ahora, usuario, id_socio),
         )
         conn.commit()
     finally:
@@ -146,7 +146,7 @@ def _cancel_all(id_socio):
 # ── Main Window ───────────────────────────────────────────────────────────
 
 class RegistrarDeudasWindow(tk.Toplevel):
-    def __init__(self, parent=None, usuario=None):
+    def __init__(self, parent=None, usuario=None, socio_id=None):
         super().__init__(parent)
         self.title("Registrar Deudas")
         self.geometry(f"{W}x{H}")
@@ -157,6 +157,9 @@ class RegistrarDeudasWindow(tk.Toplevel):
         self.usuario = usuario or ""
         self.current_socio = None
         self._build()
+
+        if socio_id is not None:
+            self.after(50, lambda sid=str(socio_id): self._select_socio(sid))
 
     def _build(self):
         # === SEARCH BAR ===
@@ -332,6 +335,49 @@ class RegistrarDeudasWindow(tk.Toplevel):
         self.importe_var.set("")
         self.detalle_var.set("")
 
+    def _select_socio(self, id_socio):
+        """Pre-select a socio by idSocio (used on open via socio_id).
+
+        Resolves the socio directly by id (does not depend on the grid row or
+        the Documento-based _on_select), populates the info panel, enables the
+        action buttons and highlights the matching row in the tree if present.
+        """
+        conn = db.get_connection()
+        try:
+            row = conn.execute(
+                "SELECT s.idSocio, s.Apellidos, s.Nombres, s.Documento, s.Domicilio, "
+                "  COALESCE((SELECT SUM(CAST(d.ImporteDeuda AS REAL)) FROM "
+                "      tb_RegistroDeudas d "
+                "      WHERE d.idSocio = s.idSocio "
+                "        AND (d.Cancelada IS NULL OR d.Cancelada != '1') "
+                "        AND (d.Eliminado IS NULL OR d.Eliminado != '1')), 0) AS deuda "
+                "FROM tbSocios s WHERE s.idSocio = ?",
+                (id_socio,),
+            ).fetchone()
+        finally:
+            conn.close()
+
+        if row is None:
+            messagebox.showwarning("Deuda", "Socio no encontrado.", parent=self)
+            return
+
+        socio = dict(row)
+        self.current_socio = {"idSocio": socio["idSocio"], "deuda": socio["deuda"]}
+        nombre = f"{(socio['Apellidos'] or '').upper()} {(socio['Nombres'] or '').upper()}"
+        self.lbl_nombre.configure(text=nombre)
+        self.lbl_dni.configure(text=f"DNI: {socio['Documento']}")
+        self.btn_registrar.configure(state="normal")
+        self.btn_detalle.configure(state="normal")
+
+        # Highlight the matching row in the tree if it is present.
+        doc = str(socio["Documento"] or "")
+        for iid in self.tree.get_children():
+            item = self.tree.item(iid, "values")
+            if item and str(item[1]) == doc:
+                self.tree.selection_set(iid)
+                self.tree.see(iid)
+                break
+
     # ── Register debt ─────────────────────────────────────────────────────
 
     def _on_register(self):
@@ -398,11 +444,12 @@ class RegistrarDeudasWindow(tk.Toplevel):
             from app import cancelar_deudas
         except ImportError:
             import cancelar_deudas
-        cancelar_deudas.open_window(self, socio_id=self.current_socio["idSocio"])
+        cancelar_deudas.open_window(
+            self, socio_id=self.current_socio["idSocio"], usuario=self.usuario)
 
 
-def open_window(parent=None, usuario=None):
-    return RegistrarDeudasWindow(parent, usuario=usuario)
+def open_window(parent=None, usuario=None, socio_id=None):
+    return RegistrarDeudasWindow(parent, usuario=usuario, socio_id=socio_id)
 
 
 if __name__ == "__main__":

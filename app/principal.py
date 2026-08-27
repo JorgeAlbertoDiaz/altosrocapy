@@ -177,7 +177,7 @@ def open_module(window: tk.Tk, name: str, font_family: str) -> None:
         consultar_estados_socios.open_window(window)
         return
     if name == "Consultar Socios":
-        consultar_socios.open_window(window)
+        consultar_socios.open_window(window, usuario=_current_user)
         return
     if name == "Registrar Cobros":
         registrar_cobros.open_window(window, usuario=_current_user)
