@@ -86,11 +86,20 @@ def _socio_nombre_dni(id_socio):
 def _fmt_ts(raw):
     if not raw:
         return ""
-    try:
-        dt = datetime.datetime.strptime(str(raw)[:19], "%Y-%m-%d %H:%M:%S")
-        return dt.strftime("%d/%m/%Y %H:%M")
-    except (ValueError, TypeError):
-        return str(raw)
+    s = str(raw).strip()
+    dt = None
+    # Fecha con hora (sufijo .000 opcional) o solo fecha
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            dt = datetime.datetime.strptime(s[:19], fmt)
+            break
+        except ValueError:
+            continue
+    if dt is None:
+        return s
+    if dt.hour == 0 and dt.minute == 0 and dt.second == 0:
+        return dt.strftime("%d-%m-%Y")
+    return dt.strftime("%d-%m-%Y %H:%M")
 
 
 def _dt_to_ts(d):
@@ -115,9 +124,9 @@ def _collect_movements(fecha_d, fecha_h, usuario, id_tipo_pago,
                 "  p.UsuarioCobrador, p.idTipoPago, p.Observaciones "
                 "FROM tbPagos p "
                 "WHERE (p.Eliminado IS NULL OR p.Eliminado != '1') "
-                "  AND CAST(p.FechadePago AS TEXT) >= ? "
-                "  AND CAST(p.FechadePago AS TEXT) <= ?",
-                (fecha_d, fecha_h)).fetchall()
+                "  AND substr(CAST(p.FechadePago AS TEXT), 1, 10) >= ? "
+                "  AND substr(CAST(p.FechadePago AS TEXT), 1, 10) <= ?",
+                (fecha_d[:10], fecha_h[:10])).fetchall()
             for r in rows:
                 nombre, dni = _socio_nombre_dni(r[1])
                 fp = _forma_pago(r[5])
@@ -138,9 +147,9 @@ def _collect_movements(fecha_d, fecha_h, usuario, id_tipo_pago,
                 "FROM tb_RegistroDeudas d "
                 "WHERE d.Cancelada = '1' "
                 "  AND (d.Eliminado IS NULL OR d.Eliminado != '1') "
-                "  AND CAST(d.FechaCancelacion AS TEXT) >= ? "
-                "  AND CAST(d.FechaCancelacion AS TEXT) <= ?",
-                (fecha_d, fecha_h)).fetchall()
+                "  AND substr(CAST(d.FechaCancelacion AS TEXT), 1, 10) >= ? "
+                "  AND substr(CAST(d.FechaCancelacion AS TEXT), 1, 10) <= ?",
+                (fecha_d[:10], fecha_h[:10])).fetchall()
             for r in rows:
                 nombre, dni = _socio_nombre_dni(r[1])
                 detalle = (f"Pago Deuda - {nombre} - {r[4] or ''}")
@@ -156,9 +165,9 @@ def _collect_movements(fecha_d, fecha_h, usuario, id_tipo_pago,
                 "  g.UsuarioCobrador, g.idTipoPago "
                 "FROM tbIngresosGenerales g "
                 "WHERE (g.Eliminado IS NULL OR g.Eliminado != '1') "
-                "  AND CAST(g.Fecha AS TEXT) >= ? "
-                "  AND CAST(g.Fecha AS TEXT) <= ?",
-                (fecha_d, fecha_h)).fetchall()
+                "  AND substr(CAST(g.Fecha AS TEXT), 1, 10) >= ? "
+                "  AND substr(CAST(g.Fecha AS TEXT), 1, 10) <= ?",
+                (fecha_d[:10], fecha_h[:10])).fetchall()
             for r in rows:
                 detalle = f"Ingreso Extra - {r[1] or ''}"
                 movs.append({
@@ -174,9 +183,9 @@ def _collect_movements(fecha_d, fecha_h, usuario, id_tipo_pago,
                 "  g.Usuario, g.idTipoPago "
                 "FROM tbGastosGenerales g "
                 "WHERE (g.Eliminado IS NULL OR g.Eliminado != '1') "
-                "  AND CAST(g.Fecha AS TEXT) >= ? "
-                "  AND CAST(g.Fecha AS TEXT) <= ?",
-                (fecha_d, fecha_h)).fetchall()
+                "  AND substr(CAST(g.Fecha AS TEXT), 1, 10) >= ? "
+                "  AND substr(CAST(g.Fecha AS TEXT), 1, 10) <= ?",
+                (fecha_d[:10], fecha_h[:10])).fetchall()
             for r in rows:
                 detalle = f"Gasto - {r[1] or ''}"
                 movs.append({
@@ -341,7 +350,7 @@ class CajaWindow(tk.Toplevel):
         self.tree.heading("haber", text="Haber")
         self.tree.heading("saldo", text="Saldo")
         self.tree.column("id", width=50, anchor="center", stretch=False)
-        self.tree.column("detalle", width=560, stretch=True)
+        self.tree.column("detalle", width=460, stretch=True)
         self.tree.column("debe", width=120, anchor="e", stretch=False)
         self.tree.column("haber", width=120, anchor="e", stretch=False)
         self.tree.column("saldo", width=140, anchor="e", stretch=False)

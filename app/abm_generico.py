@@ -324,24 +324,31 @@ class ABMWindow(tk.Toplevel):
             e.place(x=x + 130, y=y - 6, width=w + 30, height=26)
             self.ed_entries[cname] = e
 
-        btn_x = self.W - 200
+        # Botones Guardar / Eliminar — uno al lado del otro, abajo del form
+        # de edición (sin superponerse a los inputs).
+        btn_w = 170
+        btn_h = 32
+        gap = 10
+        y_btn = 178
+        x_ultimo = self.W - 30 - btn_w
+        x_primero = x_ultimo - btn_w - gap
+
         self.btn_guardar_edit = tk.Button(
             frm_edit, text="Guardar Cambios", bg=BTN_GREEN, fg="#FFF",
             font=FN_B, relief="flat", activebackground=BTN_GREEN_ACTIVE,
             cursor="hand2", command=self._on_guardar_edit, state="disabled")
-        self.btn_guardar_edit.place(x=btn_x, y=40, width=170, height=30)
+        self.btn_guardar_edit.place(x=x_primero, y=y_btn, width=btn_w,
+                                    height=btn_h)
 
         self.btn_eliminar = tk.Button(
             frm_edit, text="Eliminar", bg=BTN_RED, fg="#FFF", font=FN_B,
             relief="flat", activebackground=BTN_RED_ACTIVE, cursor="hand2",
             command=self._on_eliminar, state="disabled")
-        self.btn_eliminar.place(x=btn_x, y=85, width=170, height=30)
+        self.btn_eliminar.place(x=x_ultimo, y=y_btn, width=btn_w,
+                                height=btn_h)
 
-        self.btn_nuevo = tk.Button(
-            frm_edit, text="Nuevo", bg=BTN_GRAY, fg="#FFF", font=FN_B,
-            relief="flat", activebackground=BTN_GRAY_ACTIVE, cursor="hand2",
-            command=self._new_edit)
-        self.btn_nuevo.place(x=btn_x, y=130, width=170, height=30)
+        # El botón "Nuevo" gris se eliminó: no hacía nada visible y el form se
+        # resetea automáticamente vía _new_edit() (al arrancar, guardar o borrar).
 
     # ── Mode switching ────────────────────────────────────────────────────
 

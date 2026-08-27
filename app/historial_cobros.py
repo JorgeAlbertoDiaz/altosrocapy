@@ -117,16 +117,16 @@ class HistorialCobrosWindow(tk.Toplevel):
         frm_grid = tk.Frame(self, bg="#E8E8E8")
         frm_grid.place(x=15, y=110, width=870, height=315)
 
-        cols = ("id", "detalle", "haber", "saldo")
+        cols = ("id", "detalle", "debe", "saldo")
         self.tree = ttk.Treeview(frm_grid, columns=cols, show="headings",
                                  selectmode="browse")
         self.tree.heading("id", text="ID")
         self.tree.heading("detalle", text="Detalle")
-        self.tree.heading("haber", text="Ingreso")
+        self.tree.heading("debe", text="Ingreso")
         self.tree.heading("saldo", text="Saldo")
         self.tree.column("id", width=50, anchor="center", stretch=False)
         self.tree.column("detalle", width=520, stretch=True)
-        self.tree.column("haber", width=120, anchor="e", stretch=False)
+        self.tree.column("debe", width=120, anchor="e", stretch=False)
         self.tree.column("saldo", width=140, anchor="e", stretch=False)
 
         style = ttk.Style(self)
@@ -255,11 +255,11 @@ class HistorialCobrosWindow(tk.Toplevel):
         saldo = 0.0
         self._saldo_acum = []
         for m in self._movs:
-            saldo += m["haber"] - m["debe"]
+            saldo += m["debe"] - m["haber"]
             self._saldo_acum.append(saldo)
             self.tree.insert("", "end", values=(
                 m["id"], m["detalle"],
-                f"{m['haber']:.0f}" if m["haber"] else "",
+                f"{m['debe']:.0f}" if m["debe"] else "",
                 f"{saldo:.0f}",
             ))
 
