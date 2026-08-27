@@ -98,8 +98,8 @@ def _fmt_ts(raw):
     if dt is None:
         return s
     if dt.hour == 0 and dt.minute == 0 and dt.second == 0:
-        return dt.strftime("%d-%m-%Y")
-    return dt.strftime("%d-%m-%Y %H:%M")
+        return dt.strftime("%d/%m/%Y")
+    return dt.strftime("%d/%m/%Y %H:%M")
 
 
 def _dt_to_ts(d):
