@@ -11,6 +11,7 @@ Estética: WinForms / VB.NET clásica. Lista cronológica (más antiguo arriba).
 """
 
 import datetime
+import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from calendar import month_name
@@ -247,7 +248,8 @@ class CajaWindow(tk.Toplevel):
         self._movs = []
         self._saldo_acum = []
         self._build()
-        self._refresh()
+        # Initially set input states + load data (modo diaria por defecto)
+        self._toggle_mode()
 
     def _build(self):
         # === FILTER BAR (no groupbox) ===
@@ -279,16 +281,17 @@ class CajaWindow(tk.Toplevel):
                        command=self._toggle_mode).place(x=250, y=0)
 
         self.anio_var = tk.StringVar(value=str(datetime.date.today().year))
-        tk.Spinbox(frm, from_=2000, to=2100, textvariable=self.anio_var,
-                   width=5, font=FN, command=self._on_change,
-                   increment=1).place(x=250, y=25, width=70, height=25)
+        self.spin_anio = tk.Spinbox(
+            frm, from_=2000, to=2100, textvariable=self.anio_var,
+            width=5, font=FN, command=self._on_change, increment=1)
+        self.spin_anio.place(x=250, y=25, width=70, height=25)
         self.anio_var.trace_add("write", lambda *_: self._on_change())
 
         self.mes_var = tk.StringVar(value=MESES[datetime.date.today().month - 1])
-        cb_mes = ttk.Combobox(frm, values=MESES, textvariable=self.mes_var,
-                              state="readonly", font=FN, width=12)
-        cb_mes.place(x=330, y=25, width=110, height=25)
-        cb_mes.bind("<<ComboboxSelected>>", lambda _: self._on_change())
+        self.cb_mes = ttk.Combobox(frm, values=MESES, textvariable=self.mes_var,
+                                   state="readonly", font=FN, width=12)
+        self.cb_mes.place(x=330, y=25, width=110, height=25)
+        self.cb_mes.bind("<<ComboboxSelected>>", lambda _: self._on_change())
 
         # --- Filtro Usuario ---
         tk.Label(frm, text="Usuario", bg=BG, fg=FG, font=FN).place(x=460, y=0)
@@ -359,6 +362,14 @@ class CajaWindow(tk.Toplevel):
         self.tree.place(x=0, y=0, relwidth=0.985, relheight=0.96)
         vsb.place(relx=0.985, y=0, relheight=0.96)
         hsb.place(x=0, rely=0.96, relwidth=0.985)
+
+        # Procesando overlay (shown while filtering/loading)
+        self.lbl_proc = tk.Label(
+            frm_grid, text="⏳ Procesando reporte...", bg="#FFFBCC",
+            fg="#7A5B00", font=("Helvetica", 14, "bold"), relief="solid", bd=1,
+        )
+        self.lbl_proc.place(relx=0.5, rely=0.5, anchor="center")
+        self.lbl_proc.place_forget()
 
         # === BOTTOM PANEL (990x60) ===
         frm_bot = tk.Frame(self, bg=BG)
@@ -436,16 +447,53 @@ class CajaWindow(tk.Toplevel):
 
     # ── Refresh ───────────────────────────────────────────────────────────
 
+    def _toggle_mode(self):
+        # Disable the inputs that don't belong to the active mode.
+        if self.diaria_var.get() == "diaria":
+            # Diaria: datepicker enabled, period (año/mes) disabled
+            if self.dt_fecha is not None:
+                self.dt_fecha.configure(state="normal")
+            else:
+                self.entry_fecha.configure(state="normal")
+            self.spin_anio.configure(state="disabled")
+            self.cb_mes.configure(state="disabled")
+        else:
+            # Mensual: period enabled, datepicker disabled
+            if self.dt_fecha is not None:
+                self.dt_fecha.configure(state="disabled")
+            else:
+                self.entry_fecha.configure(state="disabled")
+            self.spin_anio.configure(state="normal")
+            self.cb_mes.configure(state="readonly")
+        self._refresh()
+
     def _refresh(self):
         fecha_d, fecha_h = self._rango()
         usuario = self.usuario_var.get()
         usuario = None if usuario == "Todos" else usuario
         id_tipo_pago = self._filtro_pago()
+        incl_ingr = self.incluir_ingr_var.get()
+        incl_gast = self.incluir_gast_var.get()
 
-        self._movs = _collect_movements(
-            fecha_d, fecha_h, usuario, id_tipo_pago,
-            self.incluir_ingr_var.get(), self.incluir_gast_var.get())
+        # Show loading overlay + disable re-entry
+        self.lbl_proc.place(relx=0.5, rely=0.5, anchor="center")
+        self.tree.configure(cursor="watch")
+        self.update_idletasks()
 
+        def _worker():
+            try:
+                movs = _collect_movements(
+                    fecha_d, fecha_h, usuario, id_tipo_pago,
+                    incl_ingr, incl_gast)
+            except Exception as e:
+                self.after(0, lambda: self._apply_worker_error(e))
+                return
+            self.after(0, lambda: self._apply_movements(movs))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _apply_movements(self, movs):
+        self._movs = movs
         self.tree.delete(*self.tree.get_children())
 
         saldo = 0.0
@@ -460,6 +508,15 @@ class CajaWindow(tk.Toplevel):
                 f"{saldo:,.0f}",
             ))
         self._total_actual = saldo
+
+        self.lbl_proc.place_forget()
+        self.tree.configure(cursor="")
+
+    def _apply_worker_error(self, e):
+        self.lbl_proc.place_forget()
+        self.tree.configure(cursor="")
+        messagebox.showerror("Error", f"Error al procesar el reporte: {e}",
+                             parent=self)
 
     def _ver_importe(self):
         total = self._saldo_acum[-1] if self._saldo_acum else 0.0

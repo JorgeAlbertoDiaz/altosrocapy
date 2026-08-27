@@ -335,7 +335,7 @@ class RegistrarDeudasWindow(tk.Toplevel):
 
     def _on_register(self):
         if not self.current_socio:
-            messagebox.showwarning("Deuda", "Seleccione un socio.")
+            messagebox.showwarning("Deuda", "Seleccione un socio.", parent=self)
             return
         importe = self.importe_var.get().strip()
         detalle = self.detalle_var.get().strip()
@@ -343,14 +343,14 @@ class RegistrarDeudasWindow(tk.Toplevel):
         try:
             importe_f = float(importe)
         except (ValueError, TypeError):
-            messagebox.showwarning("Deuda", "Importe inválido.")
+            messagebox.showwarning("Deuda", "Importe inválido.", parent=self)
             return
 
         if importe_f <= 0:
-            messagebox.showwarning("Deuda", "El importe debe ser mayor a 0.")
+            messagebox.showwarning("Deuda", "El importe debe ser mayor a 0.", parent=self)
             return
         if not detalle:
-            messagebox.showwarning("Deuda", "El detalle es obligatorio.")
+            messagebox.showwarning("Deuda", "El detalle es obligatorio.", parent=self)
             return
 
         if DateEntry is not None:
@@ -362,18 +362,19 @@ class RegistrarDeudasWindow(tk.Toplevel):
                     int(parts[2]), int(parts[1]), int(parts[0])
                 ).strftime("%Y-%m-%d %H:%M:%S.000")
             except (ValueError, IndexError):
-                messagebox.showwarning("Deuda", "Fecha inválida.")
+                messagebox.showwarning("Deuda", "Fecha inválida.", parent=self)
                 return
 
         try:
             new_id = _register_deuda(
                 self.current_socio["idSocio"], fecha, importe_f, detalle)
         except Exception as e:
-            messagebox.showerror("Error", f"Error al registrar deuda: {e}")
+            messagebox.showerror("Error", f"Error al registrar deuda: {e}", parent=self)
             return
 
         messagebox.showinfo("Éxito", f"Deuda registrada. ID: {new_id}\n"
-                              f"Importe: ${importe_f:,.2f}\nDetalle: {detalle}")
+                              f"Importe: ${importe_f:,.2f}\nDetalle: {detalle}",
+                            parent=self)
         self.importe_var.set("")
         self.detalle_var.set("")
         self._refresh_grid()
