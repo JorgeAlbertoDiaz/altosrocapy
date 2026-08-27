@@ -1,8 +1,8 @@
 # Build de AltosRoca para Windows: compila los .exe y los copia al destino.
 #
 # Uso (desde la raiz del proyecto):
-#   py scripts\build_windows.py
-#   py scripts\build_windows.py --dest "D:\mi-carpeta"
+#   py scripts\build_windows.py                                   # usa el Python actual
+#   py scripts\build_windows.py --bits 64 --dest "D:\mi-carpeta"  # exe de 64 bits
 #   py scripts\build_windows.py --check dist-windows\AltosRoca.exe
 #
 # Requisitos: Python 3.12+ y PyInstaller (`py -m pip install pyinstaller`).
@@ -11,8 +11,15 @@
 # del .exe resultante la fija el intérprete de Python que ejecuta este script:
 #   - Python 64-bit  -> exe 64-bit  (NO corre en un Windows de 32 bits)
 #   - Python 32-bit  -> exe 32-bit  (corre en Windows de 32 y 64 bits)
-# Si el exe debe correr en un Windows de 32 bits (p. ej. AMD Sempron 145),
-# compilar con un Python de 32 bits (x86) instalado en Windows.
+#
+# Para producir AMBAS arquitecturas (lo recomendable si el exe debe correr en
+# PCs viejas de 32 bits y en las modernas de 64), correr el script dos veces,
+# una con cada Python, y copiar los .exe resultantes al mismo destino:
+#   py -3-32 scripts\build_windows.py --dest "C:\altos roca\dist-windows"
+#   py -3-64 scripts\build_windows.py --dest "C:\altos roca\dist-windows"
+# El script genera AltosRoca-32.exe / AltosRoca-64.exe (ademas del plano nativo
+# AltosRoca.exe), para que convivan en la misma carpeta. Con un solo Python
+# instalado solo se produce esa arquitectura.
 
 import argparse
 import os
@@ -36,7 +43,6 @@ BUILDS = [
 ]
 
 # Dependencies required by the app AND by the build itself.
-REQUIRED_PACKAGES = ["pyinstaller", "openpyxl", "fpdf2", "tkcalendar"]
 REQUIRED_IMPORTS = {
     "pyinstaller": "PyInstaller",
     "openpyxl": "openpyxl",
@@ -106,7 +112,17 @@ def kill_running():
     )
 
 
-def build(name: str, windowed: bool, dist_dir: str, work_dir: str) -> None:
+def build(name: str, windowed: bool, dist_dir: str, work_dir: str, bits: str) -> None:
+    # Nombre con sufijo de arquitectura para que convivan x86 y x64 en la misma
+    # carpeta (p. ej. AltosRoca-x64.exe y AltosRoca-x86.exe), mas el nombre plano
+    # como alias del nativo para no romper compatibilidad con docs/scripts.
+    names = [name, f"{name}-{bits}"]
+    for out_name in names:
+        _build_one(out_name, windowed, dist_dir, work_dir)
+    print(f"   {name}.exe (nativo {bits}) -> {pe_arch(os.path.join(dist_dir, f'{name}.exe'))}")
+
+
+def _build_one(name: str, windowed: bool, dist_dir: str, work_dir: str) -> None:
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--onefile"]
     if windowed:
         cmd.append("--windowed")
@@ -117,8 +133,6 @@ def build(name: str, windowed: bool, dist_dir: str, work_dir: str) -> None:
     result = subprocess.run(cmd, cwd=PROJECT_ROOT)
     if result.returncode != 0:
         raise SystemExit(f"Fallo la compilacion de {name}.exe")
-    exe = os.path.join(dist_dir, f"{name}.exe")
-    print(f"   {name}.exe -> {pe_arch(exe)}")
 
 
 def main() -> None:
@@ -134,11 +148,29 @@ def main() -> None:
         metavar="EXE",
         help="Solo inspecciona la arquitectura de un .exe y sale sin compilar.",
     )
+    parser.add_argument(
+        "--bits",
+        choices=["32", "64"],
+        help=(
+            "Arquitectura requerida del .exe. Por defecto usa la del Python que "
+            "ejecuta este script. Para producir ambos, correr una vez con Python "
+            "de 32 bits (py -3-32) y otra con el de 64 bits (py -3-64)."
+        ),
+    )
     args = parser.parse_args()
 
     if args.check:
         print(f"{args.check}: {pe_arch(args.check)}")
         return
+
+    running_bits = "64" if platform.architecture()[0] == "64bit" else "32"
+    if args.bits and args.bits != running_bits:
+        raise SystemExit(
+            f"El Python que ejecuta este script es de {running_bits} bits ({ARCH}), "
+            f"pero se pidio --bits {args.bits}. Compilalo con el Python del mismo "
+            f"bitness (py -3-{args.bits} scripts\\build_windows.py)."
+        )
+    bits = args.bits or running_bits
 
     ensure_dependencies()
 
@@ -149,14 +181,17 @@ def main() -> None:
     print(f"   Arquitectura del .exe resultante: {ARCH} ==")
 
     for spec in BUILDS:
-        build(spec["name"], spec["windowed"], dist_dir, work_dir)
+        build(spec["name"], spec["windowed"], dist_dir, work_dir, bits)
 
     print("== Copiando al destino ==")
     kill_running()
     os.makedirs(args.dest, exist_ok=True)
     os.makedirs(os.path.join(args.dest, "data"), exist_ok=True)
-    shutil.copy2(os.path.join(dist_dir, "AltosRoca.exe"), args.dest)
-    shutil.copy2(os.path.join(dist_dir, "AltosRocaDebug.exe"), args.dest)
+    for name in ("AltosRoca", "AltosRocaDebug"):
+        for arch_name in (f"{name}.exe", f"{name}-{bits}.exe"):
+            src = os.path.join(dist_dir, arch_name)
+            if os.path.exists(src):
+                shutil.copy2(src, args.dest)
     db = os.path.join(PROJECT_ROOT, "data", "altosroca.db")
     shutil.copy2(db, os.path.join(args.dest, "data"))
 
