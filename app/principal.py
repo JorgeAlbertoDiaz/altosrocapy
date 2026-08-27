@@ -19,6 +19,7 @@ try:
     from app import abm_generico
     from app import admin_cuentas
     from app import registrar_gastos
+    from app import gestionar_gastos
     from app.resources import load_logo, apply_app_icon
 except ImportError:  # dev / frozen fallback
     import login
@@ -34,6 +35,7 @@ except ImportError:  # dev / frozen fallback
     import abm_generico
     import admin_cuentas
     import registrar_gastos
+    import gestionar_gastos
     from resources import load_logo, apply_app_icon
 
 WINDOW_WIDTH = 1366
@@ -103,6 +105,7 @@ def build_topbar(window: tk.Tk, usuario: str, font_family: str) -> None:
                            fg="#000000")
     menu_alta = tk.Menu(m_alta, tearoff=0)
     menu_alta.add_command(label="Registrar Gastos", command=_cmd("Registrar Gastos"))
+    menu_alta.add_command(label="Gestionar Gastos", command=_cmd("Gestionar Gastos"))
     menu_alta.add_separator()
     menu_alta.add_command(label="Planes", command=_cmd("ABM Planes"))
     menu_alta.add_command(label="Formas de Pago",
@@ -199,6 +202,9 @@ def open_module(window: tk.Tk, name: str, font_family: str) -> None:
         return
     if name in ("Registrar Gastos", "Registrar Gastos"):
         registrar_gastos.open_window(window, usuario=_current_user)
+        return
+    if name == "Gestionar Gastos":
+        gestionar_gastos.open_window(window)
         return
     if name.startswith("ABM "):
         abm_generico.open_window(window, titulo=name[4:])
