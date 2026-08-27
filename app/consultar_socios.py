@@ -644,14 +644,14 @@ class ConsultarSociosWindow(tk.Toplevel):
         self.lbls_info["vencimiento"].configure(text=venc_text, fg=venc_color)
 
         total_pagado = _safe_float(s.get("_pago_total"))
-        self.lbls_info["pago_total"].configure(text=f"${total_pagado:,.0f}")
+        self.lbls_info["pago_total"].configure(text=f"${total_pagado:.0f}")
 
         saldo_val = _safe_float(s.get("_saldo"))
         deudas_val = _safe_float(s.get("_deudas_total"))
         saldo_total = saldo_val + deudas_val
         saldo_color = FG_GREEN if saldo_total == 0 else FG_RED
         self.lbls_info["saldo"].configure(
-            text=f"${saldo_total:,.0f}" if saldo_total else "$0",
+            text=f"${saldo_total:.0f}" if saldo_total else "$0",
             fg=saldo_color,
         )
 

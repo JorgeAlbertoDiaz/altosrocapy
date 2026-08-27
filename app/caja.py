@@ -503,9 +503,9 @@ class CajaWindow(tk.Toplevel):
             self._saldo_acum.append(saldo)
             self.tree.insert("", "end", values=(
                 m["id"], m["detalle"],
-                f"{m['debe']:,.0f}" if m["debe"] else "",
-                f"{m['haber']:,.0f}" if m["haber"] else "",
-                f"{saldo:,.0f}",
+                f"{m['debe']:.0f}" if m["debe"] else "",
+                f"{m['haber']:.0f}" if m["haber"] else "",
+                f"{saldo:.0f}",
             ))
         self._total_actual = saldo
 
@@ -526,7 +526,7 @@ class CajaWindow(tk.Toplevel):
         top.resizable(False, False)
         top.configure(bg=BG)
         tk.Label(top, text="CAJA ACTUAL", bg=BG, fg=FG, font=FN_B).pack(pady=8)
-        tk.Label(top, text=f"${total:,.0f}", bg=BG, fg="#003399",
+        tk.Label(top, text=f"${total:.0f}", bg=BG, fg="#003399",
                  font=("Helvetica", 18, "bold")).pack()
         top.transient(self)
         top.grab_set()

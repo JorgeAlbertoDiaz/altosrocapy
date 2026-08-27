@@ -302,7 +302,7 @@ class RegistrarDeudasWindow(tk.Toplevel):
             nombre = f"{(r['Apellidos'] or '').upper()} {(r['Nombres'] or '').upper()}"
             self.tree.insert("", "end", values=(
                 nombre, r["Documento"] or "", r["Domicilio"] or "",
-                f"{r['deuda'] or 0:,.2f}",
+                f"{r['deuda'] or 0:.2f}",
             ))
 
     def _on_select(self, _event):
@@ -375,7 +375,7 @@ class RegistrarDeudasWindow(tk.Toplevel):
             return
 
         messagebox.showinfo("Éxito", f"Deuda registrada. ID: {new_id}\n"
-                              f"Importe: ${importe_f:,.2f}\nDetalle: {detalle}",
+                              f"Importe: ${importe_f:.2f}\nDetalle: {detalle}",
                             parent=self)
         self.importe_var.set("")
         self.detalle_var.set("")

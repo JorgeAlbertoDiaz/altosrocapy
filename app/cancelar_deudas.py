@@ -251,7 +251,7 @@ class CancelarDeudasWindow(tk.Toplevel):
             importe = float(d["ImporteDeuda"] or 0)
             self.tree.insert("", "end", values=(
                 d["idDeuda"], nombre, doc,
-                f"${importe:,.0f}", _fmt(d["Fecha"]), d["Detalle"] or "",
+                f"${importe:.0f}", _fmt(d["Fecha"]), d["Detalle"] or "",
             ))
 
         # Clear right panel selection
@@ -261,7 +261,7 @@ class CancelarDeudasWindow(tk.Toplevel):
 
         # Total
         self.lbl_total.configure(
-            text=f"Total adeudado: ${total:,.0f}")
+            text=f"Total adeudado: ${total:.0f}")
 
         has_deudas = len(deudas) > 0
         self.btn_total.configure(state="normal" if has_deudas else "disabled")
@@ -318,7 +318,7 @@ class CancelarDeudasWindow(tk.Toplevel):
         if not messagebox.askyesno(
             "Confirmar",
             f"¿Desea cancelar todas las deudas del socio?\n\n"
-            f"Importe total: ${total:,.0f}",
+            f"Importe total: ${total:.0f}",
             parent=self,
         ):
             return

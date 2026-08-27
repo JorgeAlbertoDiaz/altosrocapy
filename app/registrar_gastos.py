@@ -240,7 +240,7 @@ class RegistrarGastosWindow(tk.Toplevel):
         self.tree.column("detalle", width=190, stretch=True)
         self.tree.column("importe", width=80, anchor="e", stretch=False)
         self.tree.column("fecha", width=120, stretch=False)
-        self.tree.column("usuario", width=70, center=False, stretch=False)
+        self.tree.column("usuario", width=70, anchor="center", stretch=False)
 
         style = ttk.Style(self)
         style.configure("GR.Treeview", rowheight=22, font=FN,
@@ -269,7 +269,7 @@ class RegistrarGastosWindow(tk.Toplevel):
         for r in rows:
             self.tree.insert("", "end", values=(
                 r["idGastos"], r["tipo"] or "", r["Detalle"] or "",
-                f"{float(r['Importe'] or 0):,.0f}",
+                f"{float(r['Importe'] or 0):.0f}",
                 _fmt(r["Fecha"]), r["Usuario"] or ""))
 
     # ── Guardar ───────────────────────────────────────────────────────────
@@ -326,7 +326,7 @@ class RegistrarGastosWindow(tk.Toplevel):
             return
 
         messagebox.showinfo(
-            "Éxito", f"Gasto registrado.\n\nID: {new_id}\nImporte: ${importe_f:,.2f}",
+            "Éxito", f"Gasto registrado.\n\nID: {new_id}\nImporte: ${importe_f:.2f}",
             parent=self)
         self.importe_var.set("")
         self.detalle_var.set("")

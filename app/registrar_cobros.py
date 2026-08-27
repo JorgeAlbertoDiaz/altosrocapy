@@ -708,7 +708,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
         self.lbl_plan.configure(text=f"PLAN: {s.get('_plan_nom', '')} - {s.get('_plan_desc', '')}")
 
         precio = s.get("_plan_precio", 0)
-        self.lbl_precio.configure(text=f"VALOR DEL PLAN: ${precio:,.0f}")
+        self.lbl_precio.configure(text=f"VALOR DEL PLAN: ${precio:.0f}")
 
         pago = s.get("_ultimo_pago", {})
         ultimo = _fmt(pago.get("FechadePago"))
@@ -718,7 +718,7 @@ class RegistrarCobrosWindow(tk.Toplevel):
         deudas = s.get("_deudas", 0)
         if deudas > 0:
             self.lbl_deuda.configure(
-                text=f"⚠ ATENCIÓN\nDeuda pendiente: ${deudas:,.0f}")
+                text=f"⚠ ATENCIÓN\nDeuda pendiente: ${deudas:.0f}")
         else:
             self.lbl_deuda.configure(text="")
 
@@ -746,8 +746,8 @@ class RegistrarCobrosWindow(tk.Toplevel):
 
             self.tree.insert("", "end", values=(
                 nom, doc, fcobro, venc,
-                f"${importe:,.0f}", f"${saldo:,.0f}",
-                f"${desc:,.0f}" if desc else "",
+                f"${importe:.0f}", f"${saldo:.0f}",
+                f"${desc:.0f}" if desc else "",
                 motivo, obs,
             ))
 
@@ -768,12 +768,12 @@ class RegistrarCobrosWindow(tk.Toplevel):
             entrega = _safe_float(entrega_str)
             saldo = entrega - importe_final
             saldo_color = FG_GREEN if saldo >= 0 else FG_RED
-            self.lbl_saldo.configure(text=f"${saldo:,.0f}", fg=saldo_color)
+            self.lbl_saldo.configure(text=f"${saldo:.0f}", fg=saldo_color)
         else:
             self.lbl_saldo.configure(text="$0", fg=FG)
 
-        self.lbl_importe.configure(text=f"${precio:,.0f}")
-        self.lbl_final.configure(text=f"${importe_final:,.0f}")
+        self.lbl_importe.configure(text=f"${precio:.0f}")
+        self.lbl_final.configure(text=f"${importe_final:.0f}")
 
         venc_date = None
         if self.current_socio:
@@ -850,13 +850,13 @@ class RegistrarCobrosWindow(tk.Toplevel):
             f"Socio: {nombre}\n"
             f"Plan: {s.get('_plan_nom', '')} - {s.get('_plan_desc', '')}\n"
             f"Fecha Cobro: {fecha_pago.strftime('%d/%m/%Y')}\n"
-            f"Importe Plan: ${precio:,.0f}\n"
+            f"Importe Plan: ${precio:.0f}\n"
         )
         if descuento > 0:
-            msg += f"Descuento: -${descuento:,.0f} ({motivo})\n"
+            msg += f"Descuento: -${descuento:.0f} ({motivo})\n"
         if interes > 0:
-            msg += f"Interés: +${interes:,.0f}\n"
-        msg += f"Importe Final: ${importe_final:,.0f}\n"
+            msg += f"Interés: +${interes:.0f}\n"
+        msg += f"Importe Final: ${importe_final:.0f}\n"
         msg += f"Tipo: {tipo}\n"
         msg += f"Nuevo Vencimiento: {venc_nuevo.strftime('%d/%m/%Y')}\n\n"
         msg += "¿Confirmar cobro?"

@@ -314,7 +314,7 @@ class AnularCobrosWindow(tk.Toplevel):
         for p in pagos:
             self.tree.insert("", "end", values=(
                 p["idPago"],
-                f"${_safe_float(p['Importe']):,.0f}",
+                f"${_safe_float(p['Importe']):.0f}",
                 _fmt(p.get("FechaVencimineto")),
                 _fmt(p.get("FechadePago")),
                 p.get("Observaciones") or "",

@@ -259,11 +259,11 @@ class HistorialCobrosWindow(tk.Toplevel):
             self._saldo_acum.append(saldo)
             self.tree.insert("", "end", values=(
                 m["id"], m["detalle"],
-                f"{m['haber']:,.0f}" if m["haber"] else "",
-                f"{saldo:,.0f}",
+                f"{m['haber']:.0f}" if m["haber"] else "",
+                f"{saldo:.0f}",
             ))
 
-        self.lbl_total.configure(text=f"${saldo:,.0f}")
+        self.lbl_total.configure(text=f"${saldo:.0f}")
         self.lbl_proc.place_forget()
         self.tree.configure(cursor="")
 
