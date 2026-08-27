@@ -27,7 +27,7 @@ COLOR_HEADER_FG = "#D9D9D9"
 COLOR_INPUT_BG = "#FFFFFF"
 COLOR_PANEL_BG = "#E7E8EB"
 COLOR_TEXT_DARK = "#000000"
-COLOR_PRIOR_MSG = "#4169E1"
+COLOR_PRIOR_MSG = "#4169E1"  # azul claro (no celeste)
 COLOR_ENABLED = "#008000"
 COLOR_DISABLED = "#FF0000"
 COLOR_BUTTON_BG = "#314863"
@@ -282,7 +282,7 @@ class AccesoSociosWindow(tk.Toplevel):
         self.lbl_vencimiento.configure(text=f"Vencimiento: {socio['vencimiento']}")
         if socio.get("ingreso_previo"):
             self.lbl_previo.configure(
-                text=f"Ya registra ingreso al dia de hoy, horas: {socio['ingreso_previo']}"
+                text=f"Ya registra ingreso el dia de hoy, horas {socio['ingreso_previo']}"
             )
         else:
             self.lbl_previo.configure(text="")
