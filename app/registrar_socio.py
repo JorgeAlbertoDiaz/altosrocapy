@@ -665,35 +665,43 @@ class RegistrarSocioWindow(tk.Toplevel):
 
     def _capturar_foto_camara(self):
         import importlib
-        import sys
 
-        if sys.modules.get("pygame") is None:
-            messagebox.showwarning(
-                "Cámara", "No hay soporte de cámara instalado (pygame).\n"
-                          "Usá la opción 'Desde archivo'.",
-                parent=self,
-            )
-            return
+        # 1) Intentar con OpenCV (lo más confiable en Windows: detecta y lee
+        #    la webcam que el backend MSMF de pygame no encuentra).
+        try:
+            cv2 = importlib.import_module("cv2")
+        except Exception:
+            cv2 = None
 
+        if cv2 is not None:
+            cap = self._abrir_camara_opencv(cv2)
+            if cap is not None:
+                try:
+                    self._ventana_camara_opencv(cap, cv2)
+                    return
+                finally:
+                    try:
+                        cap.release()
+                    except Exception:
+                        pass
+            self._cam_error = self._cam_error or "OpenCV no detectó ninguna cámara."
+
+        # 2) Respaldo con pygame.
         try:
             importlib.import_module("pygame.camera")
         except Exception as e:
             messagebox.showwarning(
-                "Cámara", f"No hay soporte de cámara instalado.\n({e})",
+                "Cámara",
+                "No se pudo usar la cámara.\n\n"
+                "Podés usar la opción 'Desde archivo' para cargar la foto.\n"
+                f"(Detalle técnico: {e})",
                 parent=self,
             )
             return
 
         cap = self._abrir_camara_pygame()
         if cap is None:
-            messagebox.showwarning(
-                "Cámara",
-                "No se pudo abrir la cámara.\n\n"
-                f"{self._cam_error}\n\n"
-                "Verificá que haya una cámara conectada y que ninguna otra "
-                "aplicación la esté usando.\nTambién podés usar 'Desde archivo'.",
-                parent=self,
-            )
+            messagebox.showwarning("Cámara", self._error_camara_msg(), parent=self)
             return
 
         try:
@@ -704,47 +712,159 @@ class RegistrarSocioWindow(tk.Toplevel):
             except Exception:
                 pass
 
+    def _error_camara_msg(self):
+        msg = "No se pudo abrir la cámara.\n\n" f"{self._cam_error}\n\n"
+        msg += (
+            "En Windows, revisá el PERMISO DE PRIVACIDAD de la cámara:\n"
+            "  Configuración → Privacidad y seguridad → Cámara →\n"
+            "  activar 'Permitir que las aplicaciones de escritorio accedan a la cámara'\n\n"
+            "También verificá que haya una cámara conectada y que ninguna otra\n"
+            "aplicación la esté usando.\n"
+            "Podés usar la opción 'Desde archivo' para cargar la foto."
+        )
+        return msg
+
+    def _abrir_camara_opencv(self, cv2):
+        """Abre la primera webcam con OpenCV. Devuelve cap o None."""
+        self._cam_error = ""
+        index = 0
+        try:
+            backends = [getattr(cv2, "CAP_DSHOW", -1), -1]
+            for backend in backends:
+                try:
+                    if backend == -1:
+                        cap = cv2.VideoCapture(index)
+                    else:
+                        cap = cv2.VideoCapture(index, backend)
+                except Exception:
+                    cap = cv2.VideoCapture(index)
+                if cap is not None and cap.isOpened():
+                    # Calentar la cámara y confirmar que responde al leer.
+                    ok, _fr = cap.read()
+                    if ok:
+                        return cap
+                    cap.release()
+            self._cam_error = "No se detectó ninguna cámara."
+            return None
+        except Exception as e:
+            self._cam_error = f"OpenCV no pudo abrir la cámara: {e}"
+            return None
+
+    def _ventana_camara_opencv(self, cap, cv2):
+        """Vista previa en vivo con OpenCV y botón Capturar."""
+        import tempfile
+
+        win = tk.Toplevel(self)
+        win.title("Capturar Foto")
+        win.resizable(False, False)
+        win.configure(bg="#000")
+        win.transient(self)
+        state = {"vivo": True}
+        win.protocol("WM_DELETE_WINDOW", lambda: self._cerrar_camara(win, state))
+
+        lbl = tk.Label(win, bg="#000")
+        lbl.pack(padx=4, pady=(4, 0))
+        bar = tk.Frame(win, bg="#000")
+        bar.pack(pady=5)
+        btn = tk.Button(bar, text="Capturar", bg=BTN_SAVE, fg="#FFF", font=FN_B,
+                        relief="flat", cursor="hand2")
+        btn.pack(side="left", padx=5)
+        tk.Button(bar, text="Cancelar", bg="#D9D9D9", fg="#333333", font=FN_B,
+                  relief="flat", cursor="hand2",
+                  command=lambda: self._cerrar_camara(win, state)
+                  ).pack(side="left", padx=5)
+
+        def _capturar():
+            ok, frame = cap.read()
+            if not ok or frame is None:
+                return
+            state["vivo"] = False
+            win.destroy()
+            img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+            tmp_path = tmp.name
+            tmp.close()
+            try:
+                img.save(tmp_path)
+                self._aplicar_foto_desde_archivo(tmp_path)
+            finally:
+                if os.path.isfile(tmp_path):
+                    os.remove(tmp_path)
+
+        btn.configure(command=_capturar)
+
+        def _update():
+            if not state["vivo"] or not win.winfo_exists():
+                return
+            try:
+                ok, frame = cap.read()
+                if ok and frame is not None:
+                    img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                    w, h = img.size
+                    target = 320
+                    scale = target / max(w, h)
+                    if scale < 1.0:
+                        img = img.resize((int(w * scale), int(h * scale)),
+                                         Image.Resampling.LANCZOS)
+                    else:
+                        img = img.resize((min(w, 380), min(h, 380)),
+                                         Image.Resampling.LANCZOS)
+                    tkimg = ImageTk.PhotoImage(img)
+                    lbl.configure(image=tkimg)
+                    lbl.image = tkimg
+                    win.update_idletasks()
+                    if not state.get("centrada"):
+                        state["centrada"] = True
+                        ww = win.winfo_reqwidth()
+                        wh = win.winfo_reqheight()
+                        sw = win.winfo_screenwidth()
+                        sh = win.winfo_screenheight()
+                        win.geometry(f"+{(sw - ww) // 2}+{(sh - wh) // 2}")
+            except Exception:
+                pass
+            win.after(40, _update)
+
+        _update()
+        win.grab_set()
+
     # ── Cámara con pygame (SDL2 / Media Foundation, sin OpenCV) ──────────
 
     def _abrir_camara_pygame(self):
         """Abre la primera webcam disponible con el backend nativo del SO.
 
-        Windows: Media Foundation ('_camera (msmf)')
-        Linux:   Video4Linux2 ('_camera (v4l2)')
-        Otros:   backend por defecto de pygame.
+        Windows: Media Foundation ('_camera (msmf)') o VideoCapture si está.
+        Linux:   Video4Linux2 ('_camera (v4l2)').
+        Se prueban los backends que pygame reporta como disponibles en este
+        equipo (get_backends), para máxima compatibilidad.
         """
         import importlib
         import platform as _platform
 
         self._cam_error = ""
         try:
-            sys_name = _platform.system().lower()
+            pcam = importlib.import_module("pygame.camera")
 
-            # Lista de backends a probar según el SO.
-            if sys_name == "windows":
-                backends = ["_camera (msmf)", None]
-            elif sys_name == "linux":
-                backends = ["_camera (v4l2)", None]
-            else:
-                backends = [None]
-
-            backend = None
-            for cand in backends:
-                try:
-                    pcam = importlib.import_module("pygame.camera")
-                    pcam.quit()
-                    pcam.init(cand)
-                    # Forzar el nombre del backend para listar cámaras.
-                    pcam.list_cameras()
-                    backend = cand
-                    break
-                except Exception as e:
-                    self._cam_error = f"Backend {cand}: {e}"
-                    continue
-            if backend is None:
+            # Backends disponibles según pygame (según SO y paquetes instalados).
+            candidates = pcam.get_backends()
+            if not candidates:
+                self._cam_error = "pygame no soporta cámara en este equipo."
                 return None
 
-            pcam = importlib.import_module("pygame.camera")
+            used = None
+            for cand in candidates:
+                try:
+                    pcam.quit()
+                    pcam.init(cand)
+                    pcam.list_cameras()
+                    used = cand
+                    break
+                except Exception as e:
+                    self._cam_error = f"Backend '{(cand or '').lower()}': {e}"
+                    continue
+            if used is None:
+                return None
+
+            self._cam_used = (used or "").lower()
             cams = pcam.list_cameras()
             if not cams:
                 self._cam_error = "No se detectó ninguna cámara."
@@ -855,11 +975,18 @@ class RegistrarSocioWindow(tk.Toplevel):
         doc = self.entry_doc.get().strip()
         path_rel = socios_foto.estandarizar_y_guardar(path, doc)
         if path_rel is None:
-            messagebox.showerror(
-                "Error", "No se pudo procesar la foto capturada.\n"
-                         "Verificá que el Documento sea numérico.",
-                parent=self,
-            )
+            if socios_foto.digito_carpeta(doc) is None:
+                messagebox.showerror(
+                    "Error", "No se pudo procesar la foto capturada.\n"
+                             "Verificá que el Documento sea numérico.",
+                    parent=self,
+                )
+            else:
+                messagebox.showerror(
+                    "Error", "No se pudo guardar la foto capturada.\n"
+                             f"Detalle: {socios_foto.g_last_error}",
+                    parent=self,
+                )
             return
         self._foto_rel = path_rel
         self._foto_doc = doc

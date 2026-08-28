@@ -51,12 +51,20 @@ REQUIRED_IMPORTS = {
     "fpdf2": "fpdf",
     "tkcalendar": "tkcalendar",
     "pygame": "pygame",
+    "opencv-python-headless": "cv2",
 }
 
 # Módulos que se importan dinámicamente en tiempo de ejecución y que
-# PyInstaller no detecta. En particular pygame.camera elige su backend nativo
-# (Media Foundation en Windows) vía import dinámico de pygame._camera.
+# PyInstaller no detecta. En particular:
+#  - cv2 (OpenCV) es el backend principal de cámara (se usa para detectar y
+#    capturar la webcam; PyInstaller lo empaqueta con su propio hook).
+#  - pygame.camera es el respaldo (elige su backend nativo, Media Foundation
+#    en Windows, vía import dinámico de pygame._camera). Sin pygame/camera.py
+#    el import en tiempo de ejecución falla con "No module named pygame.camera"
+#    aunque pygame esté presente.
 HIDDEN_IMPORTS = [
+    "cv2",
+    "pygame.camera",
     "pygame._camera",
 ]
 
@@ -78,6 +86,7 @@ def _pins() -> dict:
             "openpyxl": "openpyxl<4",
             "fpdf2": "fpdf2<2.8.4",
             "tkcalendar": None,
+            "opencv-python-headless": "opencv-python-headless<4.6",
         }
     return {k: None for k in REQUIRED_IMPORTS}
 
@@ -138,14 +147,16 @@ def pe_arch(path: str) -> str:
 
 
 def kill_running():
-    subprocess.run(
-        ["taskkill", "/F", "/IM", "AltosRoca.exe"],
-        capture_output=True,
-    )
-    subprocess.run(
-        ["taskkill", "/F", "/IM", "AltosRocaDebug.exe"],
-        capture_output=True,
-    )
+    # Cierra TODAS las variantes (incluidas las sufijadas con arquitectura),
+    # que suelen estar abiertas cuando se quiere redeployar.
+    names = ("AltosRoca", "AltosRocaDebug")
+    suffixes = ("", "-32", "-64", "-x86", "-x64")
+    for name in names:
+        for sfx in suffixes:
+            subprocess.run(
+                ["taskkill", "/F", "/IM", f"{name}{sfx}.exe"],
+                capture_output=True,
+            )
 
 
 def build(name: str, windowed: bool, dist_dir: str, work_dir: str, bits: str) -> None:

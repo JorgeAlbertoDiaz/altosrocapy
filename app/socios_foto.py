@@ -8,6 +8,7 @@ cuadrado 1:1 de ~320x320, con placeholder (silueta) si el archivo no existe.
 import os
 import re
 import sys
+import traceback
 from pathlib import Path
 
 try:
@@ -16,6 +17,10 @@ except ImportError:  # pragma: no cover
     Image = None
     ImageOps = None
     ImageTk = None
+
+# Último error real al estandarizar/guardar (para mostrarlo al usuario si
+# falla con un Documento válido). Se resetea en cada llamada.
+g_last_error = ""
 
 # ── Constants ─────────────────────────────────────────────────────────────
 
@@ -93,8 +98,10 @@ def estandarizar_y_guardar(src_path, documento):
     """
     dig = digito_carpeta(documento)
     if dig is None:
+        g_last_error = "Documento no numérico."
         return None
     if Image is None or ImageOps is None:
+        g_last_error = "PIL no disponible."
         return None
     try:
         with Image.open(src_path) as img:
@@ -102,9 +109,12 @@ def estandarizar_y_guardar(src_path, documento):
             img = ImageOps.fit(img, (CUAD, CUAD), Image.Resampling.LANCZOS)
             dest = foto_abs_path(foto_rel_path(documento))
             dest.parent.mkdir(parents=True, exist_ok=True)
-            img.save(dest, "JPEG", quality=85, optimize=True)
+            img.save(dest, "JPEG", quality=85)
         return foto_rel_path(documento)
-    except Exception:
+    except Exception as e:  # pragma: no cover
+        g_last_error = repr(e)
+        print("ERROR guardando foto:", e, file=sys.__stderr__)
+        traceback.print_exc()
         return None
 
 
