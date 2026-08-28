@@ -851,6 +851,13 @@ class RegistrarSocioWindow(tk.Toplevel):
                 if state["fallos"] == 8:
                     lbl.configure(text="Sin señal de la cámara…", image="")
                     lbl.image = None
+                if state["fallos"] == 12:
+                    # La cámara entregó el primer frame y luego el backend DSHOW
+                    # de Windows se cuelga (read() deja de dar frames). Reabrir
+                    # el stream la revive y vuelve a entregar frames, así la
+                    # vista previa se destraba y se puede capturar en cualquier
+                    # momento (no solo la primera toma).
+                    self._reabrir_camara(state, cv2)
                 win.after(60, _update)
                 return
             state["fallos"] = 0
@@ -1005,11 +1012,63 @@ class RegistrarSocioWindow(tk.Toplevel):
 
     def _cerrar_camara(self, win, state):
         state["vivo"] = False
+        # Liberar la cámara vigente (puede ser la reabierta) para no dejarla
+        # encendida al cancelar/cerrar la ventana.
+        cap = state.get("cap")
+        if cap is not None:
+            try:
+                if hasattr(cap, "release"):
+                    cap.release()
+                elif hasattr(cap, "stop"):
+                    cap.stop()
+            except Exception:
+                pass
         try:
             win.destroy()
         except Exception:
             pass
         self.after(50, lambda: (self.lift(), self.focus_force()))
+
+    def _reabrir_camara(self, state, cv2):
+        """Reabre el stream de la cámara tras perder la señal.
+
+        En Windows el backend DSHOW entrega el primer frame y luego se cuelga
+        (read() deja de devolver frames). Re-crear la VideoCapture revive la
+        cámara y permite capturar en cualquier momento, no solo la primera toma.
+
+        Devuelve True si logró reabrir; si no, deja la cámara tal como estaba.
+        """
+        try:
+            try:
+                state["cap"].release()
+            except Exception:
+                pass
+            nuevo = None
+            index = 0
+            backends = [getattr(cv2, "CAP_DSHOW", -1), -1]
+            for backend in backends:
+                try:
+                    if backend == -1:
+                        nuevo = cv2.VideoCapture(index)
+                    else:
+                        nuevo = cv2.VideoCapture(index, backend)
+                except Exception:
+                    nuevo = cv2.VideoCapture(index)
+                if nuevo is not None and nuevo.isOpened():
+                    break
+                try:
+                    if nuevo is not None:
+                        nuevo.release()
+                except Exception:
+                    pass
+                nuevo = None
+            if nuevo is not None:
+                state["cap"] = nuevo
+                state["fallos"] = 0
+                return True
+            return False
+        except Exception:
+            return False
 
     def _aplicar_foto_desde_archivo(self, path):
         """Estandariza y aplica la foto tomada por la cámara o desde archivo."""
