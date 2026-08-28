@@ -17,9 +17,20 @@ No se necesita nada más: tkinter y sqlite3 vienen incluidos con Python en Windo
 Desde la **raíz del proyecto** (en PowerShell o CMD de Windows, NO desde WSL):
 
 ```
-py -m PyInstaller build\app.spec --noconfirm --distpath dist-windows --workpath build\tmp
-copy data\altosroca.db dist-windows\data\
+py scripts\build_windows.py --dest "C:\altos roca\dist-windows"
 ```
+
+El script `scripts/build_windows.py` es la **receta única** de compilación.
+Hace todo esto automáticamente:
+
+1. Instala (solo si faltan) las dependencias necesarias con pip.
+2. Compila cada .exe con PyInstaller **siempre en limpio**: borra el workpath
+   `build/tmp` en cada build para evitar que el .exe salga con módulos viejos
+   cacheados (bug que hizo que el exe quedara con código desactualizado).
+3. Agrega los hidden imports necesarios (p. ej. `pygame._camera` para la
+   webcam, que PyInstaller no detecta solo).
+4. Copia `data\altosroca.db` (y deja la estructura) junto a los .exe en el
+   destino.
 
 Resultado:
 
@@ -94,9 +105,15 @@ py scripts\build_windows.py --check "C:\altos roca\dist-windows\AltosRoca-32.exe
 ## Compilación (interfaz)
 
 Si no querés usar la terminal: instalar Python + PyInstaller igual,
-luego abrir el proyecto en VS Code y ejecutar los dos comandos anteriores
-desde la terminal integrada. No hay builder gráfico oficial de PyInstaller;
-el spec (`build/app.spec`) es la forma declarativa de configurarlo.
+luego abrir el proyecto en VS Code y ejecutar desde la terminal integrada:
+
+```
+py scripts\build_windows.py --dest "C:\altos roca\dist-windows"
+```
+
+No hay builder gráfico oficial de PyInstaller; `scripts/build_windows.py` es la
+forma declarativa de configurarlo (specs en `build/*.spec` se autogeneran en
+cada build y no se editan a mano).
 
 ## Base de datos portable
 
@@ -108,14 +125,13 @@ lado del exe.
 
 ## Logo
 
-El logo NO se toma de `dist-windows/data` (esa carpeta es solo la DB). Para
-mostrarlo hay que empaquetarlo: agregar a `datas` en `build/app.spec`:
+El logo e icono se agregan **automáticamente** por `scripts/build_windows.py`
+(Flags `--add-data=<logo>;temps` y `--icon=<icono>`), tomados de `temps/`.
+No hace falta editarlos a mano: recompilando con el script ya quedan dentro del
+exe. Sin logo, la app muestra el texto "ALTOS ROCA" como fallback.
 
-```python
-datas=[("../data/altosroca.db", "data"), ("../temps/logo.png", "temps")],
-```
-
-y recompilar. Sin logo, la app muestra el texto "ALTOS ROCA" como fallback.
+> El logo se empaqueta DENTRO del exe (en `temps/` dentro del bundle); NO se
+> lee de `dist-windows/data` (esa carpeta es solo la DB).
 
 ## CI (GitHub Actions)
 

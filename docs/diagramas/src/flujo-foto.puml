@@ -1,0 +1,43 @@
+@startuml
+title Agregar la foto de un socio
+
+start
+:En la ventana "Registrar Socio"\npresionar "Capturar Foto";
+:La app pregunta: como querés\ncargar la foto?;
+
+if (opcion elegida?) then (Desde archivo)
+  :Se abre el buscador de archivos\n(Windows);
+
+  if (el documento del socio\nes un numero?) then (Si)
+    :La imagen se estandariza\na JPEG cuadrado 320x320;
+    :Se guarda en socios_img/ (digito)/(doc).jpg;
+    :Se guarda la ruta relativa\nen tbSocios.pathImage;
+    stop
+  else (No)
+    :Muestra "error: documento no numerico";
+    stop
+  endif
+
+else (Camara)
+  :Intenta abrir la webcam (pygame/SDL2);
+
+  if (hay camara disponible?) then (Si)
+    :Vista previa en vivo;
+    :El usuario presiona "Capturar";
+    :La foto se procesa igual que\n"Desde archivo";
+    stop
+  else (No)
+    :Muestra "no se pudo abrir la camara";
+    :Sugiere usar "Desde archivo";
+    stop
+  endif
+endif
+
+if (se quiere quitar la foto?) then (Si)
+  :Elimina la referencia a la foto;
+  stop
+else (No)
+  :La foto queda aplicada;
+  stop
+endif
+@end

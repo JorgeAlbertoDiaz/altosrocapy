@@ -1,0 +1,47 @@
+@startuml
+!pragma layout smetana
+skinparam componentStyle rectangle
+
+title "Vista general de AltosRoca\n(cómo conviven desarrollo, ejecutable, datos y fotos)"
+
+package "MODO DESARROLLO (editar el código)" as Dev {
+  [script ] as idle
+}
+
+package "Directorio del PROYECTO (código fuente)" as Proj {
+  component "app/" <<carpeta>> as APP
+  component "app/login.py" as LOGIN
+  component "app/principal.py" as PRIN
+  component "app/db.py" as DB
+  component "app/socios_foto.py" as FOTO_MOD
+  component "data/altosroca.db" <<SQLite>> as DBFILE
+  component "socios_img/<dígito>/<doc>.jpg" <<fotos>> as IMGDIR
+  component "docs/  y  README.md" <<doc>> as DOCS
+}
+
+package "MODO INSTALADO / EJECUTABLE (exe)" as Exe {
+  component "AltosRoca.exe" <<PyInstaller onefile>> as EXE
+  component "data/altosroca.db" <<SQLite>> as EXEDB
+  component "socios_img/..." <<fotos>> as EXEIMG
+}
+
+package "Compilación\n(scripts/build_windows.py en Windows)" as Build {
+  component "PyInstaller" as PI
+  component "La DB y las fotos se copian JUNTO al exe" as COPIA
+}
+
+LOGIN --> PRIN : inicia sesión
+PRIN --> APP : abre módulos
+DB --> DBFILE : lee/escribe
+FOTO_MOD --> IMGDIR : guarda/lee fotos
+FOTO_MOD --> DBFILE : pathImage (ruta relativa en la DB)
+
+EXE --> EXEDB : busca data/altosroca.db\njunto a sí mismo
+EXE --> EXEIMG : guarda fotos en socios_img/\njunto a sí mismo
+
+APP ..> Build : se compila con PyInstaller
+Build --> EXE : genera
+EXEDB <.. COPIA : se copia al desplegar
+EXEIMG <.. COPIA : se copia al desplegar
+
+@enduml

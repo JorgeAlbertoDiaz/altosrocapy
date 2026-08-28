@@ -7,6 +7,7 @@ cuadrado 1:1 de ~320x320, con placeholder (silueta) si el archivo no existe.
 
 import os
 import re
+import sys
 from pathlib import Path
 
 try:
@@ -28,7 +29,17 @@ _RE_NUM = re.compile(r"^\d+$")
 # ── Path helpers ──────────────────────────────────────────────────────────
 
 def app_root():
-    """Raíz del proyecto (directorio que contiene app/). Devuelve un Path."""
+    """Raíz para guardar/leer las fotos (directorio contenedor de socios_img/).
+
+    - Ambos modos devuelven la carpeta que contiene a `socios_img/`.
+    - Modo desplegado (PyInstaller onefile): devuelve el directorio del
+      ejecutable, igual que `db.get_db_path()`. Así las fotos quedan JUNTO al
+      .exe (portable y persistentes) y no en el _MEIPASS temporal, donde se
+      perderían al cerrar el programa.
+    - Modo desarrollo: raíz del proyecto (directorio que contiene app/).
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent.parent
 
 

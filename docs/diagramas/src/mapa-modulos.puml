@@ -1,0 +1,49 @@
+@startuml
+!pragma layout smetana
+skinparam componentStyle rectangle
+
+title "Mapa de módulos / ventanas de AltosRoca"
+
+component "login.py" as L
+component "principal.py" as P
+
+package "Alta de socios y consultas" as B1 {
+  component "registrar_socio.py" as RS
+  component "consultar_socios.py" as CS
+}
+
+package "Cobros y dinero" as B2 {
+  component "registrar_cobros.py" as RC
+  component "anular_cobros.py" as AN
+  component "historial_cobros.py" as HC
+  component "caja.py" as CAJ
+  component "registrar_gastos.py" as RG
+  component "gestionar_gastos.py" as GG
+  component "registrar_deudas.py" as RD
+  component "cancelar_deudas.py" as CD
+}
+
+package "Datos de acceso y tablas" as B3 {
+  component "acceso_socios.py" as AS
+  component "consultar_estados_socios.py" as CE
+  component "admin_cuentas.py" as AC
+  component "abm_generico.py" as ABM
+}
+
+L --> P
+P --> RS
+P --> CS
+P --> RC
+P --> AN
+P --> HC
+P --> CAJ
+P --> RG
+P --> GG
+P --> RD
+P --> CD
+P --> AS
+P --> CE
+P --> AC
+P --> ABM
+
+@enduml

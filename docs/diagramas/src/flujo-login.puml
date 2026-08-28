@@ -1,0 +1,23 @@
+@startuml
+title Flujo de acceso a AltosRoca (login)
+start
+:Se abre la aplicacion (login.py);
+:Ingresar USUARIO y CONTRASENA;
+:Se consulta la tabla Login de\ndata/altosroca.db;
+
+if (existe el usuario y la contrasena\nen la tabla Login?) then (Si)
+  :Verifica el NivelAcceso;
+  if (el nivel permite entrar al menu?) then (Si)
+    :Abre la ventana PRINCIPAL\n(menu de modulos);
+    :El usuario elige un modulo\n(Registrar socio, Cobros, Consultas...);
+    stop
+  else (No)
+    :Muestra "acceso restringido";
+    stop
+  endif
+else (No)
+  :Muestra "usuario o contrasena incorrectos";
+  :Vuelve a pedir credenciales;
+  stop
+endif
+@end

@@ -1,0 +1,195 @@
+@startuml
+hide circle
+skinparam linetype ortho
+
+entity "Login" {
+  varchar <<PK>> **UserID**
+  varchar UserName
+  varchar Password
+  varchar NivelAcceso
+}
+
+entity "NivelAcceso" {
+  int <<PK>> **idNivel**
+  varchar Nivel
+}
+
+entity "Rel_Socio_Plan" {
+  int <<PK>> **idRelSocioPlan**
+  int idSocio
+  int idPlan
+  varchar RestoClases
+}
+
+entity "sysdiagrams" {
+  varchar <<PK>> **name**
+  varchar principal_id
+  varchar diagram_id
+  varchar version
+  varchar definition
+}
+
+entity "tbConfiguracion" {
+  int <<PK>> **idConfig**
+  varchar Sonido
+  varchar passwordVencimiento
+  varchar Indicadores
+  varchar cambioPlan
+}
+
+entity "tbGastosGenerales" {
+  int <<PK>> **idGastos**
+  int idTipoGastos
+  varchar Detalle
+  varchar Importe
+  varchar Fecha
+  varchar Eliminado
+  varchar Usuario
+  int idTipoPago
+}
+
+entity "tbImagen" {
+  int <<PK>> **idImage**
+  varchar Imagen
+}
+
+entity "tbIngresosGenerales" {
+  int <<PK>> **idIngreso**
+  int idTipoIngresos
+  varchar Detalle
+  varchar Importe
+  varchar Fecha
+  varchar Eliminado
+  varchar UsuarioCobrador
+  int idTipoPago
+}
+
+entity "tbPagos" {
+  int <<PK>> **idPago**
+  int idSocio
+  varchar FechaVencimineto
+  varchar FechadePago
+  varchar Importe
+  varchar Saldo
+  varchar Observaciones
+  varchar Descuento
+  varchar MotivoDescuento
+  varchar EsRenovacion
+  varchar Eliminado
+  varchar UsuarioCobrador
+  varchar EliminadoPor
+  varchar FechaEliminacion
+  int idTipoPago
+}
+
+entity "tbPlan" {
+  int <<PK>> **idPlan**
+  varchar Nomenclatura
+  varchar Descripcion
+  varchar PrecioVigente
+  varchar Eliminado
+  varchar CantidadClases
+}
+
+entity "tbSocios" {
+  int <<PK>> **idSocio**
+  varchar NroInscripcion
+  varchar Apellidos
+  varchar Nombres
+  varchar Documento
+  varchar Sexo
+  varchar FecNac
+  varchar Edad
+  varchar Domicilio
+  varchar Localidad
+  varchar ObraSocial
+  varchar Provincia
+  varchar TelefonoUrgencia
+  varchar Telefono
+  varchar Email
+  varchar InformacionMedica
+  varchar AlergicoA
+  varchar Medicacion
+  varchar Altura
+  varchar Peso
+  varchar Estado
+  varchar FechaAlta
+  varchar FechaBaja
+  int id_Imagen
+  varchar Password
+  int id_Plan
+  varchar Ocupacion
+  varchar pathImage
+}
+
+entity "tbSociosAcceso" {
+  int <<PK>> **idIngreso**
+  int idSocio
+  int idPlan
+  varchar FechaAcceso
+  varchar Estado
+  varchar EstadoSaldo
+  varchar EstadoAcceso
+}
+
+entity "tbTiposGastos" {
+  int <<PK>> **idTipoGasto**
+  varchar Descripcion
+  varchar Eliminado
+}
+
+entity "tbTiposIngresos" {
+  int <<PK>> **idTipoIngresos**
+  varchar Descripcion
+  varchar Eliminado
+}
+
+entity "tb_HuellaDactilar" {
+  int <<PK>> **idHuellaDactilar**
+  int idSocio
+  varchar DedoIndiceDerecho
+  varchar DedoIndiceIzquierdo
+  varchar DedoMedioDerecho
+  varchar DedoMedioIzquierdo
+  varchar FmdDIDxml
+}
+
+entity "tb_RegistroDeudas" {
+  int <<PK>> **idDeuda**
+  int idSocio
+  varchar Fecha
+  varchar ImporteDeuda
+  varchar Detalle
+  varchar Cancelada
+  varchar FechaCancelacion
+  varchar Eliminado
+  varchar UsuarioCobrador
+}
+
+entity "tb_TipoPago" {
+  int <<PK>> **Id**
+  varchar Descripcion
+}
+
+tbSocios }o--|| tbImagen : id_Imagen
+tbSocios }o--|| tbPlan : id_Plan
+Rel_Socio_Plan }o--|| tbSocios : idSocio
+Rel_Socio_Plan }o--|| tbPlan : idPlan
+tbPagos }o--|| tbSocios : idSocio
+tbPagos }o--|| tb_TipoPago : idTipoPago
+tbSociosAcceso }o--|| tbSocios : idSocio
+tbSociosAcceso }o--|| tbPlan : idPlan
+tb_HuellaDactilar }o--|| tbSocios : idSocio
+tb_RegistroDeudas }o--|| tbSocios : idSocio
+tbGastosGenerales }o--|| tbTiposGastos : idTipoGastos
+tbGastosGenerales }o--|| tb_TipoPago : idTipoPago
+tbIngresosGenerales }o--|| tbTiposIngresos : idTipoIngresos
+tbIngresosGenerales }o--|| tb_TipoPago : idTipoPago
+Login }o--|| NivelAcceso : NivelAcceso
+
+tbGastosGenerales ..> Login : Usuario (inferred)
+tbIngresosGenerales ..> Login : UsuarioCobrador (inferred)
+tbPagos ..> Login : UsuarioCobrador (inferred)
+tbPagos ..> Login : EliminadoPor (inferred)
+tb_RegistroDeudas ..> Login : UsuarioCobrador (inferred)
+@enduml
