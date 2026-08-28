@@ -93,28 +93,6 @@ def _safe_int(val, default=0):
         return default
 
 
-def _draw_silhouette(canvas, w, h):
-    """Draw a white person silhouette on dark background."""
-    canvas.delete("all")
-    cx, cy = w // 2, h // 2
-    r_head = min(w, h) // 8
-    canvas.create_oval(
-        cx - r_head, cy - h // 3 - r_head,
-        cx + r_head, cy - h // 3 + r_head,
-        fill=PHOTO_FG, outline="",
-    )
-    body_top = cy - h // 3 + r_head + 2
-    body_bot = cy + h // 3
-    body_w = r_head * 2.2
-    canvas.create_polygon(
-        cx - body_w, body_bot,
-        cx - r_head, body_top,
-        cx + r_head, body_top,
-        cx + body_w, body_bot,
-        fill=PHOTO_FG, outline="",
-    )
-
-
 # ── Data access ───────────────────────────────────────────────────────────
 
 def _search_socios(query):
@@ -341,13 +319,14 @@ class ConsultarSociosWindow(tk.Toplevel):
         )
         frm_socio.place(x=0, y=0, width=588, height=310)
 
-        # Photo (top right of SOCIO panel)
-        self.photo_canvas = tk.Canvas(
-            frm_socio, bg="#000", width=125, height=125,
-            highlightthickness=1, highlightbackground="#888",
+        # Photo (top right of SOCIO panel) — Label de 125x125, mismo aspecto
+        # que en "Registrar Socio" para que la foto se vea igual de nítida y
+        # llena (un Canvas con highlightthickness recortaba el borde).
+        self.lbl_foto = tk.Label(
+            frm_socio, text="👤", bg="#000", fg=PHOTO_FG,
+            font=("Helvetica", 40),
         )
-        self.photo_canvas.place(x=455, y=10)
-        _draw_silhouette(self.photo_canvas, 125, 125)
+        self.lbl_foto.place(x=455, y=10, width=125, height=125)
 
         # Info labels (left side of SOCIO panel)
         self.lbls = {}
@@ -630,15 +609,14 @@ class ConsultarSociosWindow(tk.Toplevel):
         self.lbls["medicacion"].configure(text=s.get("Medicacion") or "")
         self.lbls["info_medica"].configure(text=s.get("InformacionMedica") or "")
 
-        # Photo
+        # Photo — mismo patrón que "Registrar Socio" (Label de 125x125)
         path = s.get("pathImage", "")
         photo = socios_foto.cargar_para_tk(path, 125) if path else None
         if photo is not None:
             self._photo_tk = photo
-            self.photo_canvas.delete("all")
-            self.photo_canvas.create_image(0, 0, anchor="nw", image=self._photo_tk)
+            self.lbl_foto.configure(image=photo, text="")
         else:
-            _draw_silhouette(self.photo_canvas, 125, 125)
+            self.lbl_foto.configure(image="", text="👤")
 
         # Information panel
         self.lbls_info["socio_desde"].configure(text=_fmt(s.get("FechaAlta")))
