@@ -36,8 +36,9 @@ BTN_BLUE = "#3B6FA0"
 BTN_BLUE_ACTIVE = "#2D5A85"
 BTN_RED = "#C0392B"
 BTN_RED_ACTIVE = "#A93226"
-BTN_GRAY = "#888888"
-BTN_GRAY_ACTIVE = "#666666"
+BTN_GRAY = "#D9D9D9"
+BTN_GRAY_ACTIVE = "#BFBFBF"
+BTN_GRAY_FG = "#333333"
 BTN_GREEN = "#2E8B57"
 BTN_GREEN_ACTIVE = "#246B43"
 SEL_BG = "#0078D7"
@@ -273,25 +274,27 @@ class AdminCuentasWindow(tk.Toplevel):
         self.btn_recuperar = tk.Button(
             frm_edit, text="Recuperar Contraseña", bg=BTN_BLUE, fg="#FFF",
             font=FN_B, relief="flat", activebackground=BTN_BLUE_ACTIVE,
-            cursor="hand2", command=self._on_recuperar, state="disabled")
-        self.btn_recuperar.place(x=420, y=26, width=180, height=28)
-
+            cursor="hand2", command=self._on_recuperar)
         self.btn_guardar_edit = tk.Button(
             frm_edit, text="Guardar Cambios", bg=BTN_GREEN, fg="#FFF",
             font=FN_B, relief="flat", activebackground=BTN_GREEN_ACTIVE,
-            cursor="hand2", command=self._on_guardar_edit, state="disabled")
-        self.btn_guardar_edit.place(x=420, y=66, width=180, height=28)
-
+            cursor="hand2", command=self._on_guardar_edit)
         self.btn_eliminar = tk.Button(
             frm_edit, text="Eliminar Usuario", bg=BTN_RED, fg="#FFF",
             font=FN_B, relief="flat", activebackground=BTN_RED_ACTIVE,
-            cursor="hand2", command=self._on_eliminar, state="disabled")
-        self.btn_eliminar.place(x=420, y=106, width=180, height=28)
+            cursor="hand2", command=self._on_eliminar)
+        # Ocultos al inicio: se muestran al seleccionar un usuario.
+        self._act_btns = [
+            (self.btn_recuperar, 420, 26, 180, 28),
+            (self.btn_guardar_edit, 420, 66, 180, 28),
+            (self.btn_eliminar, 420, 106, 180, 28),
+        ]
+        self._set_action_buttons(False)
 
         self.btn_nuevo = tk.Button(
-            self.frm_editar, text="Nuevo", bg=BTN_GRAY, fg="#FFF", font=FN_B,
-            relief="flat", activebackground=BTN_GRAY_ACTIVE, cursor="hand2",
-            command=self._new_edit)
+            self.frm_editar, text="Nuevo", bg=BTN_GRAY, fg=BTN_GRAY_FG,
+            font=FN_B, relief="flat", activebackground=BTN_GRAY_ACTIVE,
+            cursor="hand2", command=self._new_edit)
         self.btn_nuevo.place(x=W - 110, y=465, width=90, height=30)
 
     # ── Mode switching ────────────────────────────────────────────────────
@@ -330,9 +333,16 @@ class AdminCuentasWindow(tk.Toplevel):
              if str(n) == str(vals[2]) or str(self._niveles[i][0]) == str(vals[2])),
             -1)
         self.ed_nivel.current(nidx if nidx >= 0 else 0)
-        self.btn_guardar_edit.configure(state="normal")
-        self.btn_eliminar.configure(state="normal")
-        self.btn_recuperar.configure(state="normal")
+        self._set_action_buttons(True)
+
+    def _set_action_buttons(self, visible):
+        """Muestra/oculta Guardar/Eliminar/Recuperar según haya selección."""
+        if visible:
+            for btn, x, y, w, h in self._act_btns:
+                btn.place(x=x, y=y, width=w, height=h)
+        else:
+            for btn, *_ in self._act_btns:
+                btn.place_forget()
 
     # ── State helpers ─────────────────────────────────────────────────────
 
@@ -343,9 +353,7 @@ class AdminCuentasWindow(tk.Toplevel):
         self.ed_pwd.delete(0, "end")
         if self._niveles:
             self.ed_nivel.current(0)
-        self.btn_guardar_edit.configure(state="disabled")
-        self.btn_eliminar.configure(state="disabled")
-        self.btn_recuperar.configure(state="disabled")
+        self._set_action_buttons(False)
 
     def _cr_nivel_id(self):
         idx = self.cr_nivel.current()

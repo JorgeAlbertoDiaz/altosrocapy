@@ -626,9 +626,9 @@ class RegistrarCobrosWindow(tk.Toplevel):
                                width=btn_w, height=btn_h)
 
         tk.Button(
-            bar, text="Salir", bg="#999", fg="#FFF",
+            bar, text="Salir", bg="#D9D9D9", fg="#333333",
             font=("Helvetica", 8, "bold"), relief="flat",
-            activebackground="#777", activeforeground="#FFF",
+            activebackground="#BFBFBF", activeforeground="#333333",
             cursor="hand2", command=self.destroy,
         ).place(x=W - 80, y=btn_y + btn_h + 2, width=70, height=26)
 

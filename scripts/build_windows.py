@@ -159,6 +159,18 @@ def build(name: str, windowed: bool, dist_dir: str, work_dir: str, bits: str) ->
 
 
 def _build_one(name: str, windowed: bool, dist_dir: str, work_dir: str) -> None:
+    # Limpia el workpath para forzar una compilacion 100% limpia con el codigo
+    # actual. PyInstaller reutiliza el PYZ cacheado en el workpath si no se
+    # borra, lo que provoca que el .exe salga con modulos viejos (bugs que ya
+    # estan corregidos en el codigo fuente). Tambien se borra el .spec
+    # autogenerado por nombre en el workpath para evitar reconstruirlo mal.
+    work_dir = os.path.abspath(work_dir)
+    gen_spec = os.path.join(work_dir, f"{name}.spec")
+    if os.path.isdir(work_dir):
+        shutil.rmtree(work_dir, ignore_errors=True)
+    if os.path.isfile(gen_spec):
+        os.remove(gen_spec)
+
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--onefile"]
     if windowed:
         cmd.append("--windowed")

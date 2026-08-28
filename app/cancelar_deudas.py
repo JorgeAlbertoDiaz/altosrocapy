@@ -198,21 +198,22 @@ class CancelarDeudasWindow(tk.Toplevel):
             self, text="CANCELAR DEUDA PARCIAL", bg=BTN_BLUE, fg="#FFF",
             font=FN_B, relief="flat",
             activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
-            cursor="hand2", command=self._on_cancel_parcial, state="disabled",
+            cursor="hand2", command=self._on_cancel_parcial,
         )
-        self.btn_parcial.place(x=620, y=228, width=250, height=30)
-
         self.btn_total = tk.Button(
             self, text="CANCELAR TOTAL", bg=BTN_BLUE, fg="#FFF",
             font=FN_B, relief="flat",
             activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
-            cursor="hand2", command=self._on_cancel_total, state="disabled",
+            cursor="hand2", command=self._on_cancel_total,
         )
-        self.btn_total.place(x=10, y=228, width=160, height=30)
+        # Ocultos al inicio: TOTAL al cargar socio con deudas, PARCIAL al
+        # seleccionar un renglón de deuda.
+        self.btn_parcial.place_forget()
+        self.btn_total.place_forget()
 
         tk.Button(
-            self, text="Salir", bg="#999", fg="#FFF", font=FN_B,
-            relief="flat", activebackground="#777", cursor="hand2",
+            self, text="Salir", bg="#D9D9D9", fg="#333333", font=FN_B,
+            relief="flat", activebackground="#BFBFBF", cursor="hand2",
             command=self.destroy,
         ).place(x=180, y=228, width=80, height=30)
 
@@ -265,15 +266,18 @@ class CancelarDeudasWindow(tk.Toplevel):
             text=f"Total adeudado: ${total:.0f}")
 
         has_deudas = len(deudas) > 0
-        self.btn_total.configure(state="normal" if has_deudas else "disabled")
-        self.btn_parcial.configure(state="disabled")
+        if has_deudas:
+            self.btn_total.place(x=10, y=228, width=160, height=30)
+        else:
+            self.btn_total.place_forget()
+        self.btn_parcial.place_forget()
 
     # ── Selection ─────────────────────────────────────────────────────────
 
     def _on_select(self, _event):
         sel = self.tree.selection()
         if not sel:
-            self.btn_parcial.configure(state="disabled")
+            self.btn_parcial.place_forget()
             return
         vals = self.tree.item(sel[0], "values")
         self.lbl_importe.configure(text=vals[3])
@@ -283,7 +287,7 @@ class CancelarDeudasWindow(tk.Toplevel):
             if str(d["idDeuda"]) == str(vals[0]):
                 self.lbl_fecha.configure(text=d["Fecha"])
                 break
-        self.btn_parcial.configure(state="normal")
+        self.btn_parcial.place(x=620, y=228, width=250, height=30)
 
     # ── Cancel partial ────────────────────────────────────────────────────
 

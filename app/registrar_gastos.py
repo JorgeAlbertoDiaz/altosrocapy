@@ -215,8 +215,8 @@ class RegistrarGastosWindow(tk.Toplevel):
             command=self._on_guardar)
         self.btn_guardar.place(x=15, y=270, width=170, height=32)
 
-        tk.Button(self, text="Salir", bg="#999", fg="#FFF", font=FN_B,
-                  relief="flat", activebackground="#777", cursor="hand2",
+        tk.Button(self, text="Salir", bg="#D9D9D9", fg="#333333", font=FN_B,
+                  relief="flat", activebackground="#BFBFBF", cursor="hand2",
                   command=self.destroy).place(x=W - 100, y=270, width=85,
                                               height=32)
 

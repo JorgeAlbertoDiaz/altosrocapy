@@ -43,8 +43,9 @@ BTN_BLUE = "#3B6FA0"
 BTN_BLUE_ACTIVE = "#2D5A85"
 BTN_RED = "#C0392B"
 BTN_RED_ACTIVE = "#A93226"
-BTN_GRAY = "#888888"
-BTN_GRAY_ACTIVE = "#666666"
+BTN_GRAY = "#D9D9D9"
+BTN_GRAY_ACTIVE = "#BFBFBF"
+BTN_GRAY_FG = "#333333"
 BTN_GREEN = "#2E8B57"
 BTN_GREEN_ACTIVE = "#246B43"
 SEL_BG = "#0078D7"
@@ -253,19 +254,22 @@ class GestionarGastosWindow(tk.Toplevel):
         self.btn_guardar = tk.Button(
             frm_edit, text="Guardar Cambios", bg=BTN_GREEN, fg="#FFF",
             font=FN_B, relief="flat", activebackground=BTN_GREEN_ACTIVE,
-            cursor="hand2", command=self._on_guardar, state="disabled")
-        self.btn_guardar.place(x=560, y=104, width=160, height=26)
-
+            cursor="hand2", command=self._on_guardar)
         self.btn_eliminar = tk.Button(
             frm_edit, text="Eliminar", bg=BTN_RED, fg="#FFF", font=FN_B,
             relief="flat", activebackground=BTN_RED_ACTIVE, cursor="hand2",
-            command=self._on_eliminar, state="disabled")
-        self.btn_eliminar.place(x=560, y=140, width=160, height=26)
+            command=self._on_eliminar)
+        # Ocultos al inicio: se muestran al seleccionar un gasto.
+        self._act_btns = [
+            (self.btn_guardar, 560, 104, 160, 26),
+            (self.btn_eliminar, 560, 140, 160, 26),
+        ]
+        self._set_action_buttons(False)
 
         self.btn_nuevo = tk.Button(
-            frm_edit, text="Nuevo", bg=BTN_GRAY, fg="#FFF", font=FN_B,
-            relief="flat", activebackground=BTN_GRAY_ACTIVE, cursor="hand2",
-            command=self._new_edit)
+            frm_edit, text="Nuevo", bg=BTN_GRAY, fg=BTN_GRAY_FG,
+            font=FN_B, relief="flat", activebackground=BTN_GRAY_ACTIVE,
+            cursor="hand2", command=self._new_edit)
         self.btn_nuevo.place(x=440, y=140, width=100, height=26)
 
     # ── Rangos / grid ─────────────────────────────────────────────────────
@@ -342,8 +346,16 @@ class GestionarGastosWindow(tk.Toplevel):
         else:
             self.fecha_var.set(str(self._fecha_sql(vals[4]))[:10])
 
-        self.btn_guardar.configure(state="normal")
-        self.btn_eliminar.configure(state="normal")
+        self._set_action_buttons(True)
+
+    def _set_action_buttons(self, visible):
+        """Muestra/oculta Guardar/Eliminar según haya selección."""
+        if visible:
+            for btn, x, y, w, h in self._act_btns:
+                btn.place(x=x, y=y, width=w, height=h)
+        else:
+            for btn, *_ in self._act_btns:
+                btn.place_forget()
 
     def _new_edit(self):
         self.current_id = None
@@ -354,8 +366,7 @@ class GestionarGastosWindow(tk.Toplevel):
             self.combo_pago.current(0)
         self.entry_detalle.delete(0, "end")
         self.entry_importe.delete(0, "end")
-        self.btn_guardar.configure(state="disabled")
-        self.btn_eliminar.configure(state="disabled")
+        self._set_action_buttons(False)
 
     # Helpers para resolver ids a partir de las filas mostradas
 

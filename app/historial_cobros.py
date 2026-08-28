@@ -166,8 +166,8 @@ class HistorialCobrosWindow(tk.Toplevel):
                   cursor="hand2", command=self._exportar_excel).place(
             x=640, y=8, width=125, height=25)
 
-        tk.Button(frm_bot, text="Salir", bg="#999", fg="#FFF", font=FN_B,
-                  relief="flat", activebackground="#777", cursor="hand2",
+        tk.Button(frm_bot, text="Salir", bg="#D9D9D9", fg="#333333", font=FN_B,
+                  relief="flat", activebackground="#BFBFBF", cursor="hand2",
                   command=self.destroy).place(x=795, y=8, width=75, height=25)
 
     # ── Filters ───────────────────────────────────────────────────────────

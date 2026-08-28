@@ -424,23 +424,25 @@ class ConsultarSociosWindow(tk.Toplevel):
         )
         self.btn_pagar.place(x=10, y=130, width=120, height=32)
 
-        # EDITAR button
+        # EDITAR button (secundario; se muestra al cargar un socio)
         self.btn_editar = tk.Button(
-            frm_info, text="Editar", bg="#888", fg="#FFF",
+            frm_info, text="Editar", bg="#D9D9D9", fg="#333333",
             font=("Helvetica", 9, "bold"), relief="flat",
-            activebackground="#666", activeforeground="#FFF",
-            cursor="hand2", command=self._on_editar, state="disabled",
+            activebackground="#BFBFBF", activeforeground="#333333",
+            cursor="hand2", command=self._on_editar,
         )
         self.btn_editar.place(x=140, y=130, width=90, height=32)
+        self.btn_editar.place_forget()
 
         # VER DEUDAS button (habilitado al cargar socio)
         self.btn_ver_deudas = tk.Button(
             frm_info, text="Ver Deudas", bg=BTN_BLUE, fg="#FFF",
             font=("Helvetica", 9, "bold"), relief="flat",
             activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
-            cursor="hand2", command=self._on_ver_deudas, state="disabled",
+            cursor="hand2", command=self._on_ver_deudas,
         )
         self.btn_ver_deudas.place(x=240, y=130, width=110, height=32)
+        self.btn_ver_deudas.place_forget()
 
         # === RIGHT COLUMN (40%) ===
         right = tk.Frame(self, bg=BG)
@@ -591,8 +593,8 @@ class ConsultarSociosWindow(tk.Toplevel):
             messagebox.showinfo("Error", "Socio no encontrado.", parent=self)
             return
         self.current_socio = socio
-        self.btn_editar.configure(state="normal")
-        self.btn_ver_deudas.configure(state="normal")
+        self.btn_editar.place(x=140, y=130, width=90, height=32)
+        self.btn_ver_deudas.place(x=240, y=130, width=110, height=32)
         self._populate(socio)
 
     def _populate(self, s):

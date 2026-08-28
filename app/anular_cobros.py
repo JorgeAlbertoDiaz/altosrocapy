@@ -159,9 +159,9 @@ class AnularCobrosWindow(tk.Toplevel):
         self.entry_search.bind("<Return>", lambda _: self._do_search())
 
         tk.Button(
-            frm_search, text="Buscar", bg="#888", fg="#FFF",
+            frm_search, text="Buscar", bg="#D9D9D9", fg="#333333",
             font=("Helvetica", 9, "bold"), relief="flat",
-            activebackground="#666", cursor="hand2",
+            activebackground="#BFBFBF", cursor="hand2",
             command=self._do_search,
         ).place(x=628, y=2, width=70, height=30)
 
@@ -228,13 +228,22 @@ class AnularCobrosWindow(tk.Toplevel):
             bar, text="Anular", bg=BTN_BLUE, fg="#FFF",
             font=("Helvetica", 9, "bold"), relief="flat",
             activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
-            cursor="hand2", command=self._on_anular, state="disabled",
+            cursor="hand2", command=self._on_anular,
         )
-        self.btn_anular.pack(side="right", padx=(6, 0))
+        # Oculto al inicio: se muestra cuando el socio tiene pagos a anular.
+        self._anular_visible = False
 
         tk.Button(
             bar, text="Volver", width=10, command=self._on_close,
         ).pack(side="right", padx=(6, 0))
+
+    def _set_anular_button(self, visible):
+        if visible and not self._anular_visible:
+            self.btn_anular.pack(side="right", padx=(6, 0))
+            self._anular_visible = True
+        elif not visible and self._anular_visible:
+            self.btn_anular.pack_forget()
+            self._anular_visible = False
 
     # ── Search ────────────────────────────────────────────────────────────
 
@@ -320,7 +329,7 @@ class AnularCobrosWindow(tk.Toplevel):
                 p.get("Observaciones") or "",
             ))
 
-        self.btn_anular.configure(state="normal" if pagos else "disabled")
+        self._set_anular_button(bool(pagos))
 
     # ── Anular ────────────────────────────────────────────────────────────
 
@@ -376,16 +385,16 @@ class AnularCobrosWindow(tk.Toplevel):
             self.after(50, lambda: (self.lift(), self.focus_force()))
 
         tk.Button(
-            confirm, text="Aceptar", bg="#888", fg="#FFF",
+            confirm, text="Aceptar", bg="#3B6FA0", fg="#FFF",
             font=("Helvetica", 9, "bold"), relief="flat",
-            activebackground="#666",
+            activebackground="#2D5A85",
             command=_confirm_delete,
         ).place(x=70, y=105, width=80, height=28)
 
         tk.Button(
-            confirm, text="Cancelar", bg="#888", fg="#FFF",
+            confirm, text="Cancelar", bg="#D9D9D9", fg="#333333",
             font=("Helvetica", 9, "bold"), relief="flat",
-            activebackground="#666",
+            activebackground="#BFBFBF",
             command=_cancel,
         ).place(x=170, y=105, width=80, height=28)
 

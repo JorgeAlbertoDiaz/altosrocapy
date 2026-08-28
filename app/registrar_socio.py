@@ -335,9 +335,9 @@ class RegistrarSocioWindow(tk.Toplevel):
         self.lbl_foto.place(relx=0.5, rely=0.5, anchor="center")
 
         tk.Button(
-            gb1, text="Capturar Foto", bg="#888888", fg="#FFF",
+            gb1, text="Capturar Foto", bg="#D9D9D9", fg="#333333",
             font=("Helvetica", 8, "bold"), relief="flat",
-            activebackground="#666666", cursor="hand2",
+            activebackground="#BFBFBF", cursor="hand2",
             command=self._capture_photo,
         ).place(x=720, y=152, width=125, height=24)
 
@@ -471,9 +471,9 @@ class RegistrarSocioWindow(tk.Toplevel):
         ).place(x=670, y=590, width=90, height=30)
 
         tk.Button(
-            self, text="Cancelar", bg="#888", fg="#FFF",
+            self, text="Cancelar", bg="#D9D9D9", fg="#333333",
             font=FN_B, relief="flat",
-            activebackground="#666", activeforeground="#FFF",
+            activebackground="#BFBFBF", activeforeground="#333333",
             cursor="hand2", command=self.destroy,
         ).place(x=780, y=590, width=90, height=30)
 
@@ -634,7 +634,7 @@ class RegistrarSocioWindow(tk.Toplevel):
                   font=FN_B, relief="flat",
                   command=lambda: _elige(self._seleccionar_foto_archivo),
                   ).pack(side="left", padx=5)
-        tk.Button(btn_frame, text="Cámara", bg="#888", fg="#FFF",
+        tk.Button(btn_frame, text="Cámara", bg="#D9D9D9", fg="#333333",
                   font=FN_B, relief="flat",
                   command=lambda: _elige(self._capturar_foto_camara),
                   ).pack(side="left", padx=5)
@@ -664,7 +664,10 @@ class RegistrarSocioWindow(tk.Toplevel):
         self._aplicar_foto_desde_archivo(path)
 
     def _capturar_foto_camara(self):
-        if pygame is None:
+        import importlib
+        import sys
+
+        if sys.modules.get("pygame") is None:
             messagebox.showwarning(
                 "Cámara", "No hay soporte de cámara instalado (pygame).\n"
                           "Usá la opción 'Desde archivo'.",
@@ -673,7 +676,7 @@ class RegistrarSocioWindow(tk.Toplevel):
             return
 
         try:
-            import pygame.camera
+            importlib.import_module("pygame.camera")
         except Exception as e:
             messagebox.showwarning(
                 "Cámara", f"No hay soporte de cámara instalado.\n({e})",
@@ -710,6 +713,7 @@ class RegistrarSocioWindow(tk.Toplevel):
         Linux:   Video4Linux2 ('_camera (v4l2)')
         Otros:   backend por defecto de pygame.
         """
+        import importlib
         import platform as _platform
 
         self._cam_error = ""
@@ -727,11 +731,11 @@ class RegistrarSocioWindow(tk.Toplevel):
             backend = None
             for cand in backends:
                 try:
-                    import pygame.camera
-                    pygame.camera.quit()
-                    pygame.camera.init(cand)
+                    pcam = importlib.import_module("pygame.camera")
+                    pcam.quit()
+                    pcam.init(cand)
                     # Forzar el nombre del backend para listar cámaras.
-                    pygame.camera.list_cameras()
+                    pcam.list_cameras()
                     backend = cand
                     break
                 except Exception as e:
@@ -740,7 +744,7 @@ class RegistrarSocioWindow(tk.Toplevel):
             if backend is None:
                 return None
 
-            import pygame.camera as pcam
+            pcam = importlib.import_module("pygame.camera")
             cams = pcam.list_cameras()
             if not cams:
                 self._cam_error = "No se detectó ninguna cámara."
@@ -770,7 +774,7 @@ class RegistrarSocioWindow(tk.Toplevel):
         btn = tk.Button(bar, text="Capturar", bg=BTN_SAVE, fg="#FFF", font=FN_B,
                         relief="flat", cursor="hand2")
         btn.pack(side="left", padx=5)
-        tk.Button(bar, text="Cancelar", bg="#888", fg="#FFF", font=FN_B,
+        tk.Button(bar, text="Cancelar", bg="#D9D9D9", fg="#333333", font=FN_B,
                   relief="flat", cursor="hand2",
                   command=lambda: self._cerrar_camara(win, state)
                   ).pack(side="left", padx=5)

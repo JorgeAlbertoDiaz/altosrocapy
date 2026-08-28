@@ -178,8 +178,8 @@ class RegistrarDeudasWindow(tk.Toplevel):
         self.entry_search.bind("<Return>", lambda _: self._do_search())
 
         tk.Button(
-            self, text="Buscar", bg="#888", fg="#FFF",
-            font=FN_B, relief="flat", activebackground="#666",
+            self, text="Buscar", bg="#D9D9D9", fg="#333333",
+            font=FN_B, relief="flat", activebackground="#BFBFBF",
             cursor="hand2", command=self._do_search,
         ).place(x=618, y=10, width=72, height=30)
 
@@ -280,21 +280,24 @@ class RegistrarDeudasWindow(tk.Toplevel):
             self, text="REGISTRAR DEUDA", bg=BTN_BLUE, fg="#FFF",
             font=FN_B, relief="flat",
             activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
-            cursor="hand2", command=self._on_register, state="disabled",
+            cursor="hand2", command=self._on_register,
         )
-        self.btn_registrar.place(x=10, y=490, width=160, height=32)
-
         self.btn_detalle = tk.Button(
             self, text="DETALLE DEUDA", bg=BTN_BLUE, fg="#FFF",
             font=FN_B, relief="flat",
             activebackground=BTN_BLUE_ACTIVE, activeforeground="#FFF",
-            cursor="hand2", command=self._on_detalle, state="disabled",
+            cursor="hand2", command=self._on_detalle,
         )
-        self.btn_detalle.place(x=180, y=490, width=160, height=32)
+        # Ocultos al inicio: se muestran al seleccionar un socio.
+        self._act_btns = [
+            (self.btn_registrar, 10, 490, 160, 32),
+            (self.btn_detalle, 180, 490, 160, 32),
+        ]
+        self._set_action_buttons(False)
 
         tk.Button(
-            self, text="Salir", bg="#999", fg="#FFF", font=FN_B,
-            relief="flat", activebackground="#777", cursor="hand2",
+            self, text="Salir", bg="#D9D9D9", fg="#333333", font=FN_B,
+            relief="flat", activebackground="#BFBFBF", cursor="hand2",
             command=self.destroy,
         ).place(x=600, y=490, width=90, height=32)
 
@@ -338,8 +341,7 @@ class RegistrarDeudasWindow(tk.Toplevel):
         nombre = f"{(socio['Apellidos'] or '').upper()} {(socio['Nombres'] or '').upper()}"
         self.lbl_nombre.configure(text=nombre)
         self.lbl_dni.configure(text=f"DNI: {socio['Documento']}")
-        self.btn_registrar.configure(state="normal")
-        self.btn_detalle.configure(state="normal")
+        self._set_action_buttons(True)
 
         doc = str(socio["Documento"] or "")
         values = (nombre, doc, socio["Domicilio"] or "", f"{socio['deuda'] or 0:.2f}")
@@ -363,10 +365,18 @@ class RegistrarDeudasWindow(tk.Toplevel):
         self.current_socio = None
         self.lbl_nombre.configure(text="")
         self.lbl_dni.configure(text="")
-        self.btn_registrar.configure(state="disabled")
-        self.btn_detalle.configure(state="disabled")
+        self._set_action_buttons(False)
         self.importe_var.set("")
         self.detalle_var.set("")
+
+    def _set_action_buttons(self, visible):
+        """Muestra/oculta Registrar/Detalle según haya socio seleccionado."""
+        if visible:
+            for btn, x, y, w, h in self._act_btns:
+                btn.place(x=x, y=y, width=w, height=h)
+        else:
+            for btn, *_ in self._act_btns:
+                btn.place_forget()
 
     def _select_socio(self, id_socio):
         """Pre-select a socio by idSocio (used on open via socio_id).
