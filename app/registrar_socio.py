@@ -7,6 +7,7 @@ Distribución por regiones con coordenadas absolutas tipo VB.NET.
 import calendar
 import datetime
 import os
+import sys
 import tkinter as tk
 from tkinter import ttk, messagebox
 
@@ -751,7 +752,7 @@ class RegistrarSocioWindow(tk.Toplevel):
             return None
 
     def _ventana_camara_opencv(self, cap, cv2):
-        """Vista previa en vivo con OpenCV y botón Capturar."""
+        """Vista previa en vivo con OpenCV y botón Capturar (con reintentos)."""
         import tempfile
 
         win = tk.Toplevel(self)
@@ -759,10 +760,10 @@ class RegistrarSocioWindow(tk.Toplevel):
         win.resizable(False, False)
         win.configure(bg="#000")
         win.transient(self)
-        state = {"vivo": True}
+        state = {"vivo": True, "fallos": 0, "cap": cap, "ultimo_frame": None}
         win.protocol("WM_DELETE_WINDOW", lambda: self._cerrar_camara(win, state))
 
-        lbl = tk.Label(win, bg="#000")
+        lbl = tk.Label(win, bg="#000", text="Preparando la cámara…", fg="#CCC")
         lbl.pack(padx=4, pady=(4, 0))
         bar = tk.Frame(win, bg="#000")
         bar.pack(pady=5)
@@ -774,19 +775,60 @@ class RegistrarSocioWindow(tk.Toplevel):
                   command=lambda: self._cerrar_camara(win, state)
                   ).pack(side="left", padx=5)
 
+        def mostrar(img):
+            w, h = img.size
+            target = 320
+            scale = target / max(w, h)
+            if scale < 1.0:
+                img = img.resize((int(w * scale), int(h * scale)),
+                                 Image.Resampling.LANCZOS)
+            else:
+                img = img.resize((min(w, 380), min(h, 380)),
+                                 Image.Resampling.LANCZOS)
+            tkimg = ImageTk.PhotoImage(img)
+            lbl.configure(image=tkimg, text="")
+            lbl.image = tkimg
+            win.update_idletasks()
+            if not state.get("centrada"):
+                state["centrada"] = True
+                ww = win.winfo_reqwidth()
+                wh = win.winfo_reqheight()
+                sw = win.winfo_screenwidth()
+                sh = win.winfo_screenheight()
+                win.geometry(f"+{(sw - ww) // 2}+{(sh - wh) // 2}")
+
         def _capturar():
-            ok, frame = cap.read()
-            if not ok or frame is None:
+            # Usamos la última imagen YA decodificada por la preview (vista
+            # previa viva) en vez de volver a llamar cap.read() aquí: en
+            # Windows el backend DSHOW puede bloquearse/colgar read() una vez
+            # que la cámara se congela en la primera toma, y como esto corre
+            # en el hilo de Tk haría que el botón parezca "no hacer nada" y
+            # nunca se guardara la foto. Con el último frame PIL de la preview
+            # la captura es instantanea y guarda exactamente lo que se ve.
+            img = state.get("ultimo_frame")
+            if img is None:
+                messagebox.showwarning(
+                    "Cámara",
+                    "Todavía no se recibió imagen de la cámara para capturar.\n"
+                    "Esperá a que se muestre la vista previa e intentá de nuevo.",
+                    parent=self,
+                )
                 return
             state["vivo"] = False
             win.destroy()
-            img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            try:
+                state["cap"].release()
+            except Exception:
+                pass
             tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
             tmp_path = tmp.name
-            tmp.close()
             try:
                 img.save(tmp_path)
                 self._aplicar_foto_desde_archivo(tmp_path)
+            except Exception as e:  # pragma: no cover
+                messagebox.showerror("Cámara",
+                                     "No se pudo guardar la foto: " + repr(e),
+                                     parent=self)
             finally:
                 if os.path.isfile(tmp_path):
                     os.remove(tmp_path)
@@ -796,33 +838,32 @@ class RegistrarSocioWindow(tk.Toplevel):
         def _update():
             if not state["vivo"] or not win.winfo_exists():
                 return
+            frame = None
             try:
-                ok, frame = cap.read()
-                if ok and frame is not None:
-                    img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                    w, h = img.size
-                    target = 320
-                    scale = target / max(w, h)
-                    if scale < 1.0:
-                        img = img.resize((int(w * scale), int(h * scale)),
-                                         Image.Resampling.LANCZOS)
-                    else:
-                        img = img.resize((min(w, 380), min(h, 380)),
-                                         Image.Resampling.LANCZOS)
-                    tkimg = ImageTk.PhotoImage(img)
-                    lbl.configure(image=tkimg)
-                    lbl.image = tkimg
-                    win.update_idletasks()
-                    if not state.get("centrada"):
-                        state["centrada"] = True
-                        ww = win.winfo_reqwidth()
-                        wh = win.winfo_reqheight()
-                        sw = win.winfo_screenwidth()
-                        sh = win.winfo_screenheight()
-                        win.geometry(f"+{(sw - ww) // 2}+{(sh - wh) // 2}")
+                cap_actual = state["cap"]
+                ok, fr = cap_actual.read()
+                if ok and fr is not None:
+                    frame = fr
             except Exception:
-                pass
-            win.after(40, _update)
+                frame = None
+            if frame is None:
+                state["fallos"] = state.get("fallos", 0) + 1
+                if state["fallos"] == 8:
+                    lbl.configure(text="Sin señal de la cámara…", image="")
+                    lbl.image = None
+                win.after(60, _update)
+                return
+            state["fallos"] = 0
+            try:
+                img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                # Guardar la última imagen completa (sin redimensionar) para
+                # que "Capturar" la use directamente y no dependa de re-llamar
+                # a cap.read(), que en DSHOW puede colgarse en la primera toma.
+                state["ultimo_frame"] = img
+                mostrar(img)
+            except Exception:
+                state["ultimo_frame"] = None
+            win.after(70, _update)
 
         _update()
         win.grab_set()
