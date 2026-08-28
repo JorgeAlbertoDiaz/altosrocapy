@@ -50,7 +50,15 @@ REQUIRED_IMPORTS = {
     "openpyxl": "openpyxl",
     "fpdf2": "fpdf",
     "tkcalendar": "tkcalendar",
+    "pygame": "pygame",
 }
+
+# Módulos que se importan dinámicamente en tiempo de ejecución y que
+# PyInstaller no detecta. En particular pygame.camera elige su backend nativo
+# (Media Foundation en Windows) vía import dinámico de pygame._camera.
+HIDDEN_IMPORTS = [
+    "pygame._camera",
+]
 
 
 def _pins() -> dict:
@@ -155,6 +163,8 @@ def _build_one(name: str, windowed: bool, dist_dir: str, work_dir: str) -> None:
     if windowed:
         cmd.append("--windowed")
     cmd += ["--name", name, f"--add-data={LOGO};temps", f"--icon={ICON}"]
+    for hid in HIDDEN_IMPORTS:
+        cmd += ["--hidden-import", hid]
     cmd += ["--distpath", dist_dir, "--workpath", work_dir]
     cmd += [os.path.join(PROJECT_ROOT, "app", "login.py")]
     print(f"== Compilando {name}.exe ==")

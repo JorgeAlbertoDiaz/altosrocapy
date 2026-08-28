@@ -26,9 +26,9 @@ except ImportError:
     import socios_foto
 
 try:
-    import cv2
+    import pygame
 except ImportError:
-    cv2 = None
+    pygame = None
 
 try:
     from PIL import Image, ImageTk
@@ -494,7 +494,7 @@ class RegistrarSocioWindow(tk.Toplevel):
             messagebox.showerror(
                 "Error",
                 f"Socio ID {self.socio_id} no encontrado.\n"
-                "La edición se cerrará.")
+                "La edición se cerrará.", parent=self)
             self.destroy()
             return
 
@@ -617,13 +617,13 @@ class RegistrarSocioWindow(tk.Toplevel):
     def _capture_photo(self):
         dial = tk.Toplevel(self)
         dial.title("Foto del Socio")
-        dial.geometry("280x120")
-        dial.resizable(False, False)
         dial.configure(bg=BG)
+        dial.resizable(False, False)
         dial.transient(self)
 
         def _elige(fn):
             dial.destroy()
+            self.after(50, lambda: (self.lift(), self.focus_force()))
             fn()
 
         tk.Label(dial, text="¿Cómo querés cargar la foto?",
@@ -642,6 +642,13 @@ class RegistrarSocioWindow(tk.Toplevel):
                   font=FN_B, relief="flat",
                   command=lambda: _elige(self._quitar_foto),
                   ).pack(side="left", padx=5)
+
+        dial.update_idletasks()
+        w = dial.winfo_reqwidth()
+        h = dial.winfo_reqheight()
+        sw = dial.winfo_screenwidth()
+        sh = dial.winfo_screenheight()
+        dial.geometry(f"{w}x{h}+{(sw - w) // 2}+{(sh - h) // 2}")
         dial.grab_set()
         dial.wait_window()
 
@@ -654,97 +661,204 @@ class RegistrarSocioWindow(tk.Toplevel):
         )
         if not path:
             return
-        doc = self.entry_doc.get().strip()
-        path_rel = socios_foto.estandarizar_y_guardar(path, doc)
-        if path_rel is None:
-            messagebox.showerror(
-                "Error", "No se pudo procesar la imagen seleccionada.\n"
-                         "Verificá que el Documento sea numérico y el archivo válido.")
-            return
-        self._foto_rel = path_rel
-        self._foto_doc = doc
-        self._foto_origen = path  # fuente original (path absoluto del archivo)
-        self._aplicar_foto(path_rel)
+        self._aplicar_foto_desde_archivo(path)
 
     def _capturar_foto_camara(self):
-        if cv2 is None:
-            messagebox.showwarning("Cámara", "No hay soporte de OpenCV (cv2) instalado.")
+        if pygame is None:
+            messagebox.showwarning(
+                "Cámara", "No hay soporte de cámara instalado (pygame).\n"
+                          "Usá la opción 'Desde archivo'.",
+                parent=self,
+            )
             return
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            messagebox.showwarning("Cámara", "No se pudo abrir la cámara.")
+
+        try:
+            import pygame.camera
+        except Exception as e:
+            messagebox.showwarning(
+                "Cámara", f"No hay soporte de cámara instalado.\n({e})",
+                parent=self,
+            )
             return
+
+        cap = self._abrir_camara_pygame()
+        if cap is None:
+            messagebox.showwarning(
+                "Cámara",
+                "No se pudo abrir la cámara.\n\n"
+                f"{self._cam_error}\n\n"
+                "Verificá que haya una cámara conectada y que ninguna otra "
+                "aplicación la esté usando.\nTambién podés usar 'Desde archivo'.",
+                parent=self,
+            )
+            return
+
+        try:
+            self._ventana_camara(cap)
+        finally:
+            try:
+                cap.stop()
+            except Exception:
+                pass
+
+    # ── Cámara con pygame (SDL2 / Media Foundation, sin OpenCV) ──────────
+
+    def _abrir_camara_pygame(self):
+        """Abre la primera webcam disponible con el backend nativo del SO.
+
+        Windows: Media Foundation ('_camera (msmf)')
+        Linux:   Video4Linux2 ('_camera (v4l2)')
+        Otros:   backend por defecto de pygame.
+        """
+        import platform as _platform
+
+        self._cam_error = ""
+        try:
+            sys_name = _platform.system().lower()
+
+            # Lista de backends a probar según el SO.
+            if sys_name == "windows":
+                backends = ["_camera (msmf)", None]
+            elif sys_name == "linux":
+                backends = ["_camera (v4l2)", None]
+            else:
+                backends = [None]
+
+            backend = None
+            for cand in backends:
+                try:
+                    import pygame.camera
+                    pygame.camera.quit()
+                    pygame.camera.init(cand)
+                    # Forzar el nombre del backend para listar cámaras.
+                    pygame.camera.list_cameras()
+                    backend = cand
+                    break
+                except Exception as e:
+                    self._cam_error = f"Backend {cand}: {e}"
+                    continue
+            if backend is None:
+                return None
+
+            import pygame.camera as pcam
+            cams = pcam.list_cameras()
+            if not cams:
+                self._cam_error = "No se detectó ninguna cámara."
+                return None
+            cam = pcam.Camera(cams[0], (640, 480))
+            cam.start()
+            return cam
+        except Exception as e:
+            self._cam_error = str(e)
+            return None
+
+    def _ventana_camara(self, cap):
+        """Preview en vivo con botón Capturar. Devuelve la foto o None."""
+        import tempfile
 
         win = tk.Toplevel(self)
         win.title("Capturar Foto")
         win.resizable(False, False)
         win.configure(bg="#000")
         win.transient(self)
-        lbl = tk.Label(win, bg="#000")
-        lbl.pack()
-        btn = tk.Button(win, text="Capturar", bg=BTN_SAVE, fg="#FFF", font=FN_B,
-                        relief="flat")
-        btn.pack(pady=5)
+        win.protocol("WM_DELETE_WINDOW", lambda: self._cerrar_camara(win, state))
 
-        state = {"capturando": True, "frame": None}
+        lbl = tk.Label(win, bg="#000")
+        lbl.pack(padx=4, pady=(4, 0))
+        bar = tk.Frame(win, bg="#000")
+        bar.pack(pady=5)
+        btn = tk.Button(bar, text="Capturar", bg=BTN_SAVE, fg="#FFF", font=FN_B,
+                        relief="flat", cursor="hand2")
+        btn.pack(side="left", padx=5)
+        tk.Button(bar, text="Cancelar", bg="#888", fg="#FFF", font=FN_B,
+                  relief="flat", cursor="hand2",
+                  command=lambda: self._cerrar_camara(win, state)
+                  ).pack(side="left", padx=5)
+
+        state = {"vivo": True}
 
         def _capturar():
-            if state["frame"] is None:
+            try:
+                surf = cap.get_image()
+            except Exception:
                 return
-            state["capturando"] = False
-            cap.release()
+            if surf is None:
+                return
+            state["vivo"] = False
             win.destroy()
-            self._procesar_frame_camara(state["frame"])
+            raw = pygame.image.tostring(surf, "RGB")
+            img = Image.frombytes("RGB", surf.get_size(), raw)
+            tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+            tmp_path = tmp.name
+            tmp.close()
+            try:
+                img.save(tmp_path)
+                self._aplicar_foto_desde_archivo(tmp_path)
+            finally:
+                if os.path.isfile(tmp_path):
+                    os.remove(tmp_path)
 
         btn.configure(command=_capturar)
 
         def _update():
-            if not state["capturando"]:
+            if not state["vivo"] or not win.winfo_exists():
                 return
-            ret, frame = cap.read()
-            if ret:
-                state["frame"] = frame
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                img = Image.fromarray(rgb)
-                w, h = img.size
-                target = 320
-                scale = target / max(w, h)
-                img2 = img.resize(
-                    (int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
-                tkimg = ImageTk.PhotoImage(img2)
-                lbl.configure(image=tkimg)
-                lbl.image = tkimg
-            win.after(30, _update)
+            try:
+                if cap.query_image():
+                    surf = cap.get_image()
+                    if surf is not None:
+                        raw = pygame.image.tostring(surf, "RGB")
+                        frame = Image.frombytes("RGB", surf.get_size(), raw)
+                        w, h = frame.size
+                        target = 320
+                        scale = target / max(w, h)
+                        if scale < 1.0:
+                            frame = frame.resize(
+                                (int(w * scale), int(h * scale)),
+                                Image.Resampling.LANCZOS)
+                        else:
+                            frame = frame.resize(
+                                (min(w, 380), min(h, 380)),
+                                Image.Resampling.LANCZOS)
+                        tkimg = ImageTk.PhotoImage(frame)
+                        lbl.configure(image=tkimg)
+                        lbl.image = tkimg
+                        win.update_idletasks()
+                        if not state.get("centrada"):
+                            state["centrada"] = True
+                            ww = win.winfo_reqwidth()
+                            wh = win.winfo_reqheight()
+                            sw = win.winfo_screenwidth()
+                            sh = win.winfo_screenheight()
+                            win.geometry(f"+{(sw - ww) // 2}+{(sh - wh) // 2}")
+            except Exception:
+                pass
+            win.after(40, _update)
 
-        def _cerrar():
-            state["capturando"] = False
-            cap.release()
-            win.destroy()
-
-        win.protocol("WM_DELETE_WINDOW", _cerrar)
         _update()
+        win.grab_set()
 
-    def _procesar_frame_camara(self, frame):
-        doc = self.entry_doc.get().strip()
-        import tempfile
-        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-        tmp_path = tmp.name
-        tmp.close()
+    def _cerrar_camara(self, win, state):
+        state["vivo"] = False
         try:
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            Image.fromarray(rgb).save(tmp_path)
-            path_rel = socios_foto.estandarizar_y_guardar(tmp_path, doc)
-        finally:
-            if os.path.isfile(tmp_path):
-                os.remove(tmp_path)
+            win.destroy()
+        except Exception:
+            pass
+        self.after(50, lambda: (self.lift(), self.focus_force()))
+
+    def _aplicar_foto_desde_archivo(self, path):
+        """Estandariza y aplica la foto tomada por la cámara o desde archivo."""
+        doc = self.entry_doc.get().strip()
+        path_rel = socios_foto.estandarizar_y_guardar(path, doc)
         if path_rel is None:
             messagebox.showerror(
                 "Error", "No se pudo procesar la foto capturada.\n"
-                         "Verificá que el Documento sea numérico.")
+                         "Verificá que el Documento sea numérico.",
+                parent=self,
+            )
             return
         self._foto_rel = path_rel
         self._foto_doc = doc
-        # fuente original: el archivo ya estandarizado en disco (path absoluto)
         self._foto_origen = socios_foto.foto_abs_path(path_rel)
         self._aplicar_foto(path_rel)
 
@@ -772,15 +886,15 @@ class RegistrarSocioWindow(tk.Toplevel):
         nombre = self.entry_nombre.get().strip()
 
         if not doc:
-            messagebox.showwarning("Guardar", "El campo Documento es obligatorio.")
+            messagebox.showwarning("Guardar", "El campo Documento es obligatorio.", parent=self)
             self.entry_doc.focus_set()
             return
         if not apellido:
-            messagebox.showwarning("Guardar", "El campo Apellidos es obligatorio.")
+            messagebox.showwarning("Guardar", "El campo Apellidos es obligatorio.", parent=self)
             self.entry_apellido.focus_set()
             return
         if not nombre:
-            messagebox.showwarning("Guardar", "El campo Nombres es obligatorio.")
+            messagebox.showwarning("Guardar", "El campo Nombres es obligatorio.", parent=self)
             self.entry_nombre.focus_set()
             return
 
@@ -809,7 +923,7 @@ class RegistrarSocioWindow(tk.Toplevel):
                     edad = str(today.year - fnac_date.year -
                               ((today.month, today.day) < (fnac_date.month, fnac_date.day)))
                 except (ValueError, IndexError):
-                    messagebox.showwarning("Guardar", "Fecha de nacimiento inválida.")
+                    messagebox.showwarning("Guardar", "Fecha de nacimiento inválida.", parent=self)
                     return
 
         # Parse fecha alta
@@ -872,7 +986,7 @@ class RegistrarSocioWindow(tk.Toplevel):
         try:
             id_socio = _save_socio(data, self.socio_id)
         except Exception as e:
-            messagebox.showerror("Error", f"Error al guardar: {e}")
+            messagebox.showerror("Error", f"Error al guardar: {e}", parent=self)
             return
 
         if self.socio_id:
@@ -880,14 +994,14 @@ class RegistrarSocioWindow(tk.Toplevel):
                 "Éxito",
                 f"Socio actualizado exitosamente.\n\n"
                 f"ID: {id_socio}\n"
-                f"Nombre: {apellido}, {nombre}")
+                f"Nombre: {apellido}, {nombre}", parent=self)
         else:
             messagebox.showinfo(
                 "Éxito",
                 f"Socio registrado exitosamente.\n\n"
                 f"ID: {id_socio}\n"
                 f"Documento: {doc}\n"
-                f"Nombre: {apellido}, {nombre}")
+                f"Nombre: {apellido}, {nombre}", parent=self)
         self.destroy()
 
 
