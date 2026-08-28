@@ -55,13 +55,15 @@ def query_socio(dni: str):
     conn = db.get_connection()
     try:
         row = conn.execute(
-            "SELECT idSocio, Apellidos, Nombres, Documento, Estado, id_Plan "
+            "SELECT idSocio, Apellidos, Nombres, Documento, Estado, id_Plan, "
+            "pathImage "
             "FROM tbSocios WHERE Documento = ?",
             (dni,),
         ).fetchone()
         if row is None and dni.isdigit():
             row = conn.execute(
-                "SELECT idSocio, Apellidos, Nombres, Documento, Estado, id_Plan "
+                "SELECT idSocio, Apellidos, Nombres, Documento, Estado, id_Plan, "
+                "pathImage "
                 "FROM tbSocios WHERE idSocio = ?",
                 (dni,),
             ).fetchone()
