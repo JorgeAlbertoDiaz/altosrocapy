@@ -10,11 +10,13 @@ try:
     from app import db
     from app import simclock
     from app import consultar_socios
+    from app import socios_foto
     from app.resources import get_logo_path, apply_app_icon
 except ImportError:
     import db
     import simclock
     import consultar_socios
+    import socios_foto
     from resources import get_logo_path, apply_app_icon
 
 WINDOW_WIDTH = 800
@@ -32,7 +34,6 @@ COLOR_ENABLED = "#008000"
 COLOR_DISABLED = "#FF0000"
 COLOR_BUTTON_BG = "#314863"
 COLOR_PHOTO_BG = "#000000"
-COLOR_PHOTO_FG = "#FFFFFF"
 
 LOGO_PATH = get_logo_path()
 
@@ -110,20 +111,6 @@ def _interpolate_color(start: str, end: str, t: float) -> str:
         round(r1 + (r2 - r1) * t),
         round(g1 + (g2 - g1) * t),
         round(b1 + (b2 - b1) * t),
-    )
-
-
-def _draw_silhouette(canvas: tk.Canvas, w: int, h: int) -> None:
-    """Draw a white head+shoulders silhouette on a black canvas."""
-    canvas.create_oval(
-        w // 2 - 25, 15, w // 2 + 25, 65,
-        fill=COLOR_PHOTO_FG, outline=COLOR_PHOTO_FG,
-    )
-    canvas.create_arc(
-        w // 2 - 55, 50, w // 2 + 55, 140,
-        start=0, extent=180,
-        style="pieslice",
-        fill=COLOR_PHOTO_FG, outline=COLOR_PHOTO_FG,
     )
 
 
@@ -235,17 +222,15 @@ class AccesoSociosWindow(tk.Toplevel):
         self.lbl_estado.place(x=15, y=170)
 
         photo_frame = tk.Frame(
-            panel, bg=COLOR_PHOTO_BG, width=140, height=130,
-            highlightthickness=1, highlightbackground="#888888",
+            panel, bg="#000000", width=140, height=130,
         )
         photo_frame.place(x=535, y=15)
 
-        silhouette_canvas = tk.Canvas(
-            photo_frame, bg=COLOR_PHOTO_BG, width=140, height=130,
-            highlightthickness=0, bd=0,
+        self.lbl_foto = tk.Label(
+            photo_frame, text="👤", bg="#000000", fg="#FFFFFF",
+            font=("Helvetica", 40),
         )
-        silhouette_canvas.place(relwidth=1.0, relheight=1.0)
-        _draw_silhouette(silhouette_canvas, 140, 130)
+        self.lbl_foto.place(relwidth=1.0, relheight=1.0)
 
         btn = tk.Button(
             self,
@@ -294,6 +279,16 @@ class AccesoSociosWindow(tk.Toplevel):
         color = COLOR_ENABLED if socio["habilitado"] else COLOR_DISABLED
         estado = "SOCIO HABILITADO" if socio["habilitado"] else "SOCIO INHABILITADO"
         self.lbl_estado.configure(text=estado, fg=color)
+
+        # Cargar foto del socio (mismo patrón que Registrar/Consultar).
+        path = socio.get("pathImage", "")
+        photo = socios_foto.cargar_para_tk(path, 130) if path else None
+        if photo is not None:
+            self._photo_tk = photo
+            self.lbl_foto.configure(image=photo, text="")
+        else:
+            self.lbl_foto.configure(image="", text="👤")
+
         self.state = "showing"
 
     def _clear_panel(self):
@@ -303,6 +298,7 @@ class AccesoSociosWindow(tk.Toplevel):
         self.lbl_vencimiento.configure(text="")
         self.lbl_previo.configure(text="")
         self.lbl_estado.configure(text="")
+        self.lbl_foto.configure(image="", text="👤")
         self.state = "waiting"
 
     def _open_consultar_socios(self):
