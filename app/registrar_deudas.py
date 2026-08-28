@@ -34,6 +34,11 @@ SEL_BG = "#0078D7"
 FN = ("Helvetica", 9)
 FN_B = ("Helvetica", 9, "bold")
 
+# Single living RegistrarDeudasWindow (only one at a time, same pattern as
+# acceso_socios). Reused/brought to front on reopen instead of creating a
+# duplicate Toplevel.
+_singleton = {"window": None}
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -252,7 +257,7 @@ class RegistrarDeudasWindow(tk.Toplevel):
             self.entry_fecha.place(x=95, y=18, width=140, height=24)
 
         # Importe Deuda
-        tk.Label(frm_form, text="Importe Deuda:", bg=BG, font=FN,
+        tk.Label(frm_form, text="Importe:", bg=BG, font=FN,
                  fg=FG_LABEL).place(x=20, y=58)
         self.importe_var = tk.StringVar()
         self.entry_importe = tk.Entry(
@@ -318,13 +323,41 @@ class RegistrarDeudasWindow(tk.Toplevel):
         results = _search_socios(doc)
         if not results:
             return
-        socio = results[0]
+        self._show_socio(results[0])
+
+    def _show_socio(self, socio):
+        """Fill the info panel, enable the buttons and ensure the socio's row
+        is shown (and selected) in the grid — WITHOUT dropping the current
+        selection or clearing search results.
+
+        Used on open (socio_id), on row selection, and on refresh after
+        registering a debt. The row is inserted if absent, updated in place if
+        already present (so the Deuda column reflects the current total).
+        """
         self.current_socio = {"idSocio": socio["idSocio"], "deuda": socio["deuda"]}
         nombre = f"{(socio['Apellidos'] or '').upper()} {(socio['Nombres'] or '').upper()}"
         self.lbl_nombre.configure(text=nombre)
         self.lbl_dni.configure(text=f"DNI: {socio['Documento']}")
         self.btn_registrar.configure(state="normal")
         self.btn_detalle.configure(state="normal")
+
+        doc = str(socio["Documento"] or "")
+        values = (nombre, doc, socio["Domicilio"] or "", f"{socio['deuda'] or 0:.2f}")
+        target = None
+        for iid in self.tree.get_children():
+            item = self.tree.item(iid, "values")
+            if item and str(item[1]) == doc:
+                target = iid
+                break
+        if target is not None:
+            self.tree.item(target, values=values)
+        else:
+            target = self.tree.insert("", "end", values=values)
+        # Only re-select when needed to avoid re-triggering <<TreeviewSelect>>
+        # (which would recurse through _on_select).
+        if target not in self.tree.selection():
+            self.tree.selection_set(target)
+        self.tree.see(target)
 
     def _clear_selection(self):
         self.current_socio = None
@@ -361,22 +394,7 @@ class RegistrarDeudasWindow(tk.Toplevel):
             messagebox.showwarning("Deuda", "Socio no encontrado.", parent=self)
             return
 
-        socio = dict(row)
-        self.current_socio = {"idSocio": socio["idSocio"], "deuda": socio["deuda"]}
-        nombre = f"{(socio['Apellidos'] or '').upper()} {(socio['Nombres'] or '').upper()}"
-        self.lbl_nombre.configure(text=nombre)
-        self.lbl_dni.configure(text=f"DNI: {socio['Documento']}")
-        self.btn_registrar.configure(state="normal")
-        self.btn_detalle.configure(state="normal")
-
-        # Highlight the matching row in the tree if it is present.
-        doc = str(socio["Documento"] or "")
-        for iid in self.tree.get_children():
-            item = self.tree.item(iid, "values")
-            if item and str(item[1]) == doc:
-                self.tree.selection_set(iid)
-                self.tree.see(iid)
-                break
+        self._show_socio(dict(row))
 
     # ── Register debt ─────────────────────────────────────────────────────
 
@@ -428,12 +446,15 @@ class RegistrarDeudasWindow(tk.Toplevel):
         self._refresh_grid()
 
     def _refresh_grid(self):
-        """Refresh the deuda column in the grid."""
+        """Refresh the current socio's row (and Deuda total) after registering.
+
+        Re-queries by id and re-shows the socio without clearing the search
+        results or dropping the selection, so the grid keeps the socio after
+        saving (fix: previously _do_search cleared the selection and the grid).
+        """
         if not self.current_socio:
             return
-        new_total = _total_deuda(self.current_socio["idSocio"])
-        self.current_socio["deuda"] = new_total
-        self._do_search()
+        self._select_socio(str(self.current_socio["idSocio"]))
 
     # ── Open detalle (cancelar deudas) ────────────────────────────────────
 
@@ -449,7 +470,35 @@ class RegistrarDeudasWindow(tk.Toplevel):
 
 
 def open_window(parent=None, usuario=None, socio_id=None):
-    return RegistrarDeudasWindow(parent, usuario=usuario, socio_id=socio_id)
+    """Return the single living RegistrarDeudasWindow, creating it if needed.
+
+    If an instance is already alive it is brought to the front and focused;
+    if ``socio_id`` differs from the currently shown socio it is pre-selected
+    on that instance. This guarantees only one window at a time.
+    """
+    win = _singleton["window"]
+    if win is not None:
+        try:
+            alive = win.winfo_exists()
+        except tk.TclError:
+            alive = False
+        if alive:
+            try:
+                win.deiconify()
+                win.lift()
+                win.focus_force()
+            except tk.TclError:
+                pass
+            if socio_id is not None:
+                cur = win.current_socio.get("idSocio") if win.current_socio else None
+                if str(socio_id) != str(cur):
+                    win.after(50, lambda sid=str(socio_id): win._select_socio(sid))
+            return win
+        _singleton["window"] = None
+
+    win = RegistrarDeudasWindow(parent, usuario=usuario, socio_id=socio_id)
+    _singleton["window"] = win
+    return win
 
 
 if __name__ == "__main__":

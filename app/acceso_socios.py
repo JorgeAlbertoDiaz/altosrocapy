@@ -197,6 +197,11 @@ class AccesoSociosWindow(tk.Toplevel):
         )
         self.entry.place(relwidth=1.0, relheight=1.0, x=4, y=4, width=-8, height=-8)
         self.entry.bind("<Return>", self._on_enter)
+        # Re-ensure keyboard focus stays on the DNI entry whenever this window
+        # itself regains focus from outside (e.g. returning from Consultar
+        # Socios, switching apps, clicking the taskbar) — the socio only has a
+        # numeric keypad and cannot click into the field.
+        self.bind("<FocusIn>", self._on_focus_in)
 
         panel = tk.Frame(self, bg=COLOR_PANEL_BG, width=690, height=280)
         panel.place(x=(WINDOW_WIDTH - 690) // 2, y=167)
@@ -305,6 +310,22 @@ class AccesoSociosWindow(tk.Toplevel):
         socio_id = socio["idSocio"] if socio else None
         consultar_socios.open_window(self, socio_id=socio_id)
 
+    def _on_focus_in(self, event=None):
+        """Return focus to the DNI entry when the window itself gains focus.
+
+        FocusIn fires for the window and for every child widget. We only act
+        when the event belongs to this window (not an inner widget) so we do
+        not steal focus from e.g. a button the operator is using.
+        """
+        if event is not None and event.widget is self:
+            self.after_idle(self._force_entry_focus)
+
+    def _force_entry_focus(self):
+        try:
+            self.entry.focus_force()
+        except tk.TclError:
+            pass
+
     def _hide(self):
         """Hide the window and hand focus back to its owner window.
 
@@ -327,7 +348,9 @@ class AccesoSociosWindow(tk.Toplevel):
         try:
             self.deiconify()
             self.lift()
-            self.entry.focus_set()
+            # focus_force + short delay: the window manager may not have
+            # activated the freshly-raised Toplevel yet for focus_set to stick.
+            self.after(10, self._force_entry_focus)
         except tk.TclError:
             pass
 
