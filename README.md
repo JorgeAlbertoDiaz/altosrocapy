@@ -300,6 +300,8 @@ Documentación adicional:
   Windows 7 x86, CI).
 - `docs/firma-y-smartscreen-windows.md` — firma de código, SmartScreen, Smart
   App Control y depósitos de confianza de Windows.
+- `docs/ventanas.md` — diagrama Mermaid de ventanas y ficha de comportamiento y
+  datos de cada pantalla.
 - `docs/estructura-proyecto.md` — reglas de estructura del proyecto.
 - `docs/especificaciones/` — especificaciones por ventana (login, principal…).
 
