@@ -133,6 +133,24 @@ exe. Sin logo, la app muestra el texto "ALTOS ROCA" como fallback.
 > El logo se empaqueta DENTRO del exe (en `temps/` dentro del bundle); NO se
 > lee de `dist-windows/data` (esa carpeta es solo la DB).
 
+## Firma y avisos de Windows (SmartScreen)
+
+Los `.exe` generados **no están firmados** (verificado: sin certificado
+Authenticode). Windows puede mostrar "Windows protegió tu PC" al ejecutarlos y
+Smart App Control puede bloquearlos en Windows 11.
+
+Opciones, costos y procedimiento completo (auto-firma + depósitos de confianza,
+certificado OV, Azure Artifact Signing, Mark-of-the-Web, falsos positivos de
+Defender y verificación de firma):
+
+→ [docs/firma-y-smartscreen-windows.md](../docs/firma-y-smartscreen-windows.md)
+
+Resumen: para uso interno alcanza con entregar sin Mark-of-the-Web (USB/red o
+`Unblock-File` al zip) y, opcionalmente, auto-firmar e instalar el `.cer` en
+`Root` + `TrustedPublisher`. Para distribución pública por internet hace falta
+un certificado OV (o Azure Artifact Signing si la organización califica); la
+reputación de SmartScreen se construye con el tiempo, no es instantánea.
+
 ## CI (GitHub Actions)
 
 El workflow `.github/workflows/build-windows.yml` se dispara manualmente

@@ -210,6 +210,11 @@ C:\altos roca\dist-windows\
 > `data\` con `altosroca.db`. Es la única base de datos que usarán los datos
 > reales. No mover el exe sin su carpeta `data`.
 
+> **Aviso de Windows**: el `.exe` no está firmado, así que SmartScreen puede
+> mostrar "Windows protegió tu PC" (y Smart App Control puede bloquearlo en
+> Windows 11). Opciones y procedimiento en
+> [docs/firma-y-smartscreen-windows.md](docs/firma-y-smartscreen-windows.md).
+
 ---
 
 ## 5. Dónde va cada cosa (datos, fotos, base)
@@ -290,6 +295,8 @@ PlantUML en `docs/diagramas/src/`). Resumen:
 Documentación adicional:
 - `build/README.md` — guía detallada de compilación (variantes 32/64 bits,
   Windows 7 x86, CI).
+- `docs/firma-y-smartscreen-windows.md` — firma de código, SmartScreen, Smart
+  App Control y depósitos de confianza de Windows.
 - `docs/estructura-proyecto.md` — reglas de estructura del proyecto.
 - `docs/especificaciones/` — especificaciones por ventana (login, principal…).
 
