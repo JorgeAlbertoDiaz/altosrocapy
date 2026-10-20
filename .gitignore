@@ -3,6 +3,8 @@ temps/
 __pycache__/
 *.pyc
 .venv/
+# Índice local de CodeGraph (se regenera en cada checkout)
+.codegraph/
 data/
 build/tmp/
 dist-windows/
@@ -12,3 +14,7 @@ dist/
 # (AltosRoca.spec, build/app.spec) se siguen trackeando.
 *-32.spec
 *-64.spec
+
+# Certificados de firma: NUNCA versionar la clave privada
+*.pfx
+*.pvk
