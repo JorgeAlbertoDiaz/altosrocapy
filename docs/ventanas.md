@@ -18,10 +18,12 @@ lee o escribe** en la base SQLite.
 - Flecha sólida: la ventana se abre desde un botón, menú o acción explícita.
 - Flecha punteada: apertura automática, navegación de retorno o caso no
   mapeado.
-- Azul: ventana raíz (`tk.Tk`). Naranja: ventana *singleton* (se reutiliza,
+- Azul: ventana raíz (`tk.Tk`). Amarillo: ventana *singleton* (se reutiliza,
   no se destruye al cerrar).
+- Gris punteado: módulo no mapeado o en construcción.
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "#ffffff", "mainBkg": "#ffffff", "primaryColor": "#ffffff", "primaryTextColor": "#1f2328", "primaryBorderColor": "#8c959f", "secondaryColor": "#f6f8fa", "tertiaryColor": "#ffffff", "textColor": "#1f2328", "titleColor": "#1f2328", "lineColor": "#57606a", "edgeLabelBackground": "#ffffff", "clusterBkg": "#ffffff", "clusterBorder": "#d0d7de", "fontFamily": "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif", "fontSize": "16px"}}}%%
 flowchart TD
   LOGIN["Login<br/>730x330 · sin bordes"]
   PRINCIPAL["Principal / Dashboard<br/>1366x768 · sidebar + topbar"]
@@ -77,15 +79,20 @@ flowchart TD
   REGCOB -->|"ANULAR COBROS"| ANUCOB
   REGDEU -->|"DETALLE DEUDA"| CANDDEU
 
-  classDef root fill:#1f6feb,color:#fff,stroke:#0b3d91;
-  classDef singleton fill:#ffd8a8,color:#3d2b1f,stroke:#d9480f,stroke-width:2px;
+  classDef default fill:#ffffff,color:#1f2328,stroke:#8c959f,stroke-width:1.5px;
+  classDef root fill:#ddf4ff,color:#0a3069,stroke:#0969da,stroke-width:2px;
+  classDef singleton fill:#fff8c5,color:#4d2d00,stroke:#bf8700,stroke-width:2px;
+  classDef pending fill:#f6f8fa,color:#57606a,stroke:#8c959f,stroke-dasharray:4 3;
   class LOGIN,PRINCIPAL root;
   class ACCESO,REGDEU singleton;
+  class TODO pending;
 
-  style GRP_SOCIOS fill:#eef4ff,stroke:#8aa4c8,color:#1b2a41;
-  style GRP_COBROS fill:#fff4e6,stroke:#d9a066,color:#3d2b1f;
-  style GRP_CAJA fill:#eefaf0,stroke:#7fb089,color:#1f3d28;
-  style GRP_ADMIN fill:#f3eefe,stroke:#9b87c4,color:#2c2140;
+  style GRP_SOCIOS fill:#f0f6ff,stroke:#8c959f,color:#1f2328;
+  style GRP_COBROS fill:#fff8f0,stroke:#8c959f,color:#1f2328;
+  style GRP_CAJA fill:#f0fff4,stroke:#8c959f,color:#1f2328;
+  style GRP_ADMIN fill:#faf5ff,stroke:#8c959f,color:#1f2328;
+
+  linkStyle default stroke:#57606a,stroke-width:1.5px;
 ```
 
 > `Anular Cobros`, `Cancelar Deudas` y `Gestionar Gastos` no están en el sidebar:
