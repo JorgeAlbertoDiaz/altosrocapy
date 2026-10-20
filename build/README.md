@@ -14,7 +14,14 @@ No se necesita nada más: tkinter y sqlite3 vienen incluidos con Python en Windo
 
 ## Compilación (línea de comandos)
 
-Desde la **raíz del proyecto** (en PowerShell o CMD de Windows, NO desde WSL):
+> **Sistema operativo: solo Windows.** Ejecutar en PowerShell o CMD **nativo**,
+> **no** desde WSL ni desde Linux/macOS. PyInstaller no hace cross-compile: el
+> `.exe` lo produce el intérprete de Windows. Además el script usa el launcher
+> `py`, `taskkill` y el separador `;` de `--add-data`, que no existen o no
+> aplican en POSIX. La única opción que funciona fuera de Windows es
+> `--check`, que solo lee el encabezado PE de un `.exe` ya compilado.
+
+Desde la **raíz del proyecto**, en PowerShell o CMD de Windows:
 
 ```
 py scripts\build_windows.py --dest "C:\altos roca\dist-windows"

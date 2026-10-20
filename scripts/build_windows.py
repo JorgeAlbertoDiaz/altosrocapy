@@ -1,6 +1,6 @@
 # Build de AltosRoca para Windows: compila los .exe y los copia al destino.
 #
-# Uso (desde la raiz del proyecto, en Windows):
+# Uso (desde la raiz del proyecto, en Windows nativo: PowerShell/CMD):
 #   py scripts\build_windows.py                        # orquesta: exe 64 bits moderno
 #   py scripts\build_windows.py --win7                 # orquesta: exe 64 bits + exe win7 x86
 #   py scripts\build_windows.py --bits 64 --dest "D:\mi-carpeta"
@@ -16,6 +16,12 @@
 # Requisitos: PyInstaller (`py -m pip install pyinstaller`). Para el exe win7
 # se necesita un Python 3.8 de 32 bits instalado y registrado en `py`; el
 # script fuerza las dependencias compatibles con 3.8 (fpdf2<2.8.4, openpyxl<4).
+#
+# IMPORTANTE (sistema operativo): el build debe correr en Windows nativo
+# (PowerShell/CMD), NO desde WSL, Linux ni macOS. PyInstaller no es
+# cross-compiler y este script usa el launcher `py`, `taskkill` y el separador
+# `;` de --add-data. Solo --check funciona fuera de Windows (lee un .exe ya
+# compilado).
 #
 # IMPORTANTE (arquitectura): PyInstaller NO es cross-compiler. La arquitectura
 # del .exe resultante la fija el intérprete de Python que ejecuta este script:

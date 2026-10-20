@@ -180,8 +180,11 @@ Paso a paso para generar `AltosRoca.exe` a partir del código:
   ```
 
 ### Compilar (método recomendado)
-Desde la **raíz del proyecto**, en **PowerShell de Windows** (no hace falta
-estar "dentro" de la terminal de WSL):
+**Tiene que ser en Windows nativo** (PowerShell o CMD), desde la **raíz del
+proyecto**. No se puede compilar el `.exe` desde WSL, Linux ni macOS:
+PyInstaller no es cross-compiler y el script usa el launcher `py`, `taskkill` y
+separadores de ruta de Windows (`;` en `--add-data`). La opción `--check` sí
+funciona en cualquier sistema, pero solo inspecciona un `.exe` ya compilado.
 
 ```powershell
 py scripts\build_windows.py --dest "C:\altos roca\dist-windows"

@@ -68,5 +68,8 @@ altosrocapy/
    (no dentro de `_MEIPASS`, que es un temporario que se borra al cerrar).
 4. Las fotos de socios viven en `socios_img/` y siguen la misma lógica de
    portabilidad que la base (ver `app/socios_foto.py` y sección 6 del README).
-5. Compilar siempre en **Windows** (PyInstaller no hace cross-compile desde
-   Linux); el script `build_windows.py` se ejecuta con PowerShell de Windows.
+5. Compilar siempre en **Windows nativo** (PowerShell/CMD); PyInstaller no hace
+   cross-compile desde Linux, WSL ni macOS. El script `build_windows.py` usa el
+   launcher `py`, `taskkill` y separadores de ruta de Windows, así que no
+   funciona fuera de Windows (salvo `--check`, que solo inspecciona un `.exe`
+   ya compilado).
