@@ -67,7 +67,7 @@ def query_socio(dni: str):
                 "FROM tbSocios WHERE idSocio = ?",
                 (dni,),
             ).fetchone()
-        if row is None or not _has_digits(row["Documento"] or ""):
+        if row is None or not _has_digits(str(row["Documento"] or "")):
             return None
         socio = dict(row)
 
