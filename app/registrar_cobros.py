@@ -17,8 +17,10 @@ except ImportError:
 
 try:
     from app import db
+    from app.search_utils import normalize_doc_query
 except ImportError:
     import db
+    from search_utils import normalize_doc_query
 
 # ── Constants ─────────────────────────────────────────────────────────────
 
@@ -101,9 +103,11 @@ def _search_socios(query):
     q = query.strip()
     if not q:
         return []
+    doc_q = normalize_doc_query(q)
     conn = db.get_connection()
     try:
-        like = f"%{q}%"
+        like_name = f"%{q}%"
+        like_doc = f"%{doc_q}%"
         rows = conn.execute(
             "SELECT idSocio, Apellidos, Nombres, Documento, id_Plan "
             "FROM tbSocios "
@@ -111,7 +115,7 @@ def _search_socios(query):
             "  Documento LIKE ? OR Apellidos LIKE ? OR Nombres LIKE ? "
             "  OR (Apellidos || ' ' || Nombres LIKE ?)"
             ") ORDER BY Apellidos, Nombres LIMIT 50",
-            (like, like, like, like),
+            (like_doc, like_name, like_name, like_name),
         ).fetchall()
         return [dict(r) for r in rows]
     finally:

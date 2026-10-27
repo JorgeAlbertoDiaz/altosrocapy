@@ -8,12 +8,14 @@ import tkinter.font as tkfont
 
 try:
     from app import db
+    from app.search_utils import normalize_doc_query
     from app import simclock
     from app import consultar_socios
     from app import socios_foto
     from app.resources import get_logo_path, apply_app_icon
 except ImportError:
     import db
+    from search_utils import normalize_doc_query
     import simclock
     import consultar_socios
     import socios_foto
@@ -52,6 +54,7 @@ def _parse_date(raw):
 
 def query_socio(dni: str):
     """Look up a socio by Documento (fallback idSocio). Returns dict or None."""
+    dni = normalize_doc_query(dni)
     conn = db.get_connection()
     try:
         row = conn.execute(

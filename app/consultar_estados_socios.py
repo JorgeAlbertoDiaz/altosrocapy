@@ -8,10 +8,12 @@ try:
     from app import db
     from app import simclock
     from app import exporter
+    from app.search_utils import normalize_doc_query
 except ImportError:
     import db
     import simclock
     import exporter
+    from search_utils import normalize_doc_query
 
 try:
     from tkcalendar import DateEntry
@@ -467,13 +469,15 @@ class ConsultarEstadosSociosWindow(tk.Toplevel):
 
         # Apply search filter (DNI or name) on top of the SQL filter
         if search:
+            search_name = search.casefold()
+            search_doc = normalize_doc_query(search)
             visible = []
             for item in self.tree.get_children():
                 vals = self.tree.item(item, "values")
                 # vals: id, nombre, documento, nro, venc, fpago, imp, sal, plan, estado
-                if (search in str(vals[1]).lower() or   # nombre
-                    search in str(vals[2]) or            # documento (DNI)
-                    search in str(vals[0])):             # idSocio
+                if (search_name in str(vals[1]).casefold() or  # nombre
+                    search_doc in str(vals[2]) or               # documento (DNI)
+                    search in str(vals[0])):                    # idSocio
                     visible.append(item)
             hidden = set(self.tree.get_children()) - set(visible)
             for item in hidden:
