@@ -133,12 +133,24 @@ lado del exe.
 ## Logo
 
 El logo e icono se agregan **automáticamente** por `scripts/build_windows.py`
-(Flags `--add-data=<logo>;temps` y `--icon=<icono>`), tomados de `temps/`.
+(el spec generado incluye `datas` e `icon`), tomados de `temps/`.
 No hace falta editarlos a mano: recompilando con el script ya quedan dentro del
 exe. Sin logo, la app muestra el texto "ALTOS ROCA" como fallback.
 
 > El logo se empaqueta DENTRO del exe (en `temps/` dentro del bundle); NO se
 > lee de `dist-windows/data` (esa carpeta es solo la DB).
+
+## Splash screen
+
+El exe muestra una splash con el logo mientras PyInstaller extrae el bundle
+onefile y mientras Python carga las ventanas. La imagen versionada es
+`app/assets/splash.png` (640x400); los textos de estado se actualizan desde
+`app/login.py` ("Cargando componentes...", "Verificando base de datos...",
+"Abriendo base de datos...", "Preparando la interfaz...").
+
+`scripts/build_windows.py` genera un spec temporal con `Splash(...)` porque la
+CLI de PyInstaller no permite posicionar el texto. Si cambiás la imagen, mantené
+el pie oscuro: el texto se dibuja en `text_pos=(40, 365)` con color claro.
 
 ## Firma y avisos de Windows (SmartScreen)
 

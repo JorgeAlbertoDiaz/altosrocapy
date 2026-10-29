@@ -32,7 +32,9 @@ altosrocapy/
 │   ├── socios_foto.py    # Cómo se guardan/leen las fotos de socios
 │   ├── resources.py      # Logo e iconos
 │   ├── exporter.py       # Exportación a PDF/Excel
-│   └── simclock.py       # Reloj simulado (para pruebas)
+│   ├── simclock.py       # Reloj simulado (para pruebas)
+│   └── assets/
+│       └── splash.png    # Imagen de la splash de arranque (build Windows)
 ├── data/
 │   └── altosroca.db      # Base de datos SQLite (NO versionada, ver .gitignore)
 ├── socios_img/           # Fotos de socios (se crea sola; NO versionada)

@@ -7,16 +7,16 @@ import tkinter.font as tkfont
 import tkinter.messagebox as messagebox
 
 try:
-    from app.db import validate_credentials
+    from app.db import validate_credentials, get_db_path, get_connection
     from app.resources import load_logo, apply_app_icon, force_taskbar_button
 except ImportError:  # dev / frozen fallback
-    from db import validate_credentials
+    from db import validate_credentials, get_db_path, get_connection
     from resources import load_logo, apply_app_icon, force_taskbar_button
 
 try:
-    from app import principal
-except ImportError:  # dev / frozen fallback
-    import principal
+    import pyi_splash
+except ImportError:  # normal Python run; splash only exists in frozen builds
+    pyi_splash = None
 
 WINDOW_WIDTH = 730
 WINDOW_HEIGHT = 330
@@ -32,6 +32,59 @@ COLOR_BUTTON_FG = "#E8D7C2"
 COLOR_WINDOW_BUTTONS = "#555555"
 
 TITLE_BAR_HEIGHT = 28
+
+_SPLASH_CLOSED = False
+
+
+def _splash_update(message: str) -> None:
+    """Update the PyInstaller bootloader splash text when it is available."""
+    if pyi_splash is None:
+        return
+    try:
+        if pyi_splash.is_alive():
+            pyi_splash.update_text(message)
+    except Exception:
+        # Splash plumbing must never break application startup.
+        pass
+
+
+def _splash_close() -> None:
+    global _SPLASH_CLOSED
+    if _SPLASH_CLOSED:
+        return
+    _SPLASH_CLOSED = True
+    if pyi_splash is None:
+        return
+    try:
+        if pyi_splash.is_alive():
+            pyi_splash.close()
+    except Exception:
+        pass
+
+
+def _load_principal():
+    """Import the heavy main window after the splash is already visible."""
+    try:
+        from app import principal
+    except ImportError:  # dev / frozen fallback
+        import principal
+    return principal
+
+
+def _check_database() -> None:
+    """Open the database once so the login window starts with a warm cache."""
+    _splash_update("Abriendo base de datos...")
+    try:
+        if not os.path.isfile(get_db_path()):
+            return
+        conn = get_connection()
+        try:
+            conn.execute("SELECT 1 FROM Login LIMIT 1").fetchone()
+        finally:
+            conn.close()
+    except Exception:
+        # The login window reports the real error when the user tries to log in.
+        pass
 
 
 def center_window(window: tk.Tk) -> None:
@@ -74,7 +127,7 @@ def on_access(window: tk.Tk, username: tk.Entry, password: tk.Entry) -> None:
         return
     if ok:
         window.destroy()
-        principal.main(user)
+        _load_principal().main(user)
     else:
         messagebox.showerror("AltosRoca", "Usuario o contraseña incorrectos")
 
@@ -216,11 +269,23 @@ def build_login(window: tk.Tk) -> None:
 
 
 def main() -> None:
-    window = tk.Tk()
-    center_window(window)
-    build_login(window)
-    window.protocol("WM_DELETE_WINDOW", window.destroy)
-    window.mainloop()
+    try:
+        _splash_update("Cargando componentes...")
+        _load_principal()
+
+        _splash_update("Verificando base de datos...")
+        _check_database()
+
+        _splash_update("Preparando la interfaz...")
+        window = tk.Tk()
+        center_window(window)
+        build_login(window)
+        window.protocol("WM_DELETE_WINDOW", window.destroy)
+        _splash_close()
+        window.mainloop()
+    finally:
+        # Also close the splash if startup fails before the login window exists.
+        _splash_close()
     # Ensure the process (and the PyInstaller onefile parent) dies cleanly.
     sys.exit(0)
 

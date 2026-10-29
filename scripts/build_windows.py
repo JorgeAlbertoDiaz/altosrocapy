@@ -40,6 +40,7 @@ import sys
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGO = os.path.join(PROJECT_ROOT, "temps", "logo.png")
 ICON = os.path.join(PROJECT_ROOT, "temps", "logo.ico")
+SPLASH = os.path.join(PROJECT_ROOT, "app", "assets", "splash.png")
 
 # Arquitectura del .exe generado por este intérprete.
 ARCH = {"32bit": "32 bits (x86)", "64bit": "64 bits (x64)"}.get(
@@ -175,27 +176,92 @@ def build(name: str, windowed: bool, dist_dir: str, work_dir: str, bits: str) ->
     print(f"   {name}.exe (nativo {bits}) -> {pe_arch(os.path.join(dist_dir, f'{name}.exe'))}")
 
 
+def _write_spec(name: str, windowed: bool, work_dir: str) -> str:
+    """Generate a onefile spec with the bootloader splash enabled.
+
+    PyInstaller's CLI ``--splash`` option cannot position the status text, so
+    the build uses a generated spec instead. The spec lives inside the workpath
+    (wiped before every build) and embeds the tracked splash image.
+    """
+    os.makedirs(work_dir, exist_ok=True)
+    spec_path = os.path.join(work_dir, f"{name}.spec")
+    entry_point = os.path.join(PROJECT_ROOT, "app", "login.py")
+    spec = f'''# -*- mode: python ; coding: utf-8 -*-
+
+a = Analysis(
+    [{entry_point!r}],
+    pathex=[],
+    binaries=[],
+    datas=[({LOGO!r}, "temps")],
+    hiddenimports={HIDDEN_IMPORTS!r},
+    hookspath=[],
+    hooksconfig={{}},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+    optimize=0,
+)
+pyz = PYZ(a.pure)
+splash = Splash(
+    {SPLASH!r},
+    binaries=a.binaries,
+    datas=a.datas,
+    text_pos=(40, 365),
+    text_size=12,
+    text_color="#F0F0F0",
+    text_default="Abriendo la aplicación...",
+    always_on_top=True,
+)
+exe = EXE(
+    pyz,
+    a.scripts,
+    splash,
+    splash.binaries,
+    a.binaries,
+    a.datas,
+    [],
+    name={name!r},
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console={not windowed!r},
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon=[{ICON!r}],
+)
+'''
+    with open(spec_path, "w", encoding="utf-8") as spec_file:
+        spec_file.write(spec)
+    return spec_path
+
+
 def _build_one(name: str, windowed: bool, dist_dir: str, work_dir: str) -> None:
     # Limpia el workpath para forzar una compilacion 100% limpia con el codigo
     # actual. PyInstaller reutiliza el PYZ cacheado en el workpath si no se
     # borra, lo que provoca que el .exe salga con modulos viejos (bugs que ya
-    # estan corregidos en el codigo fuente). Tambien se borra el .spec
-    # autogenerado por nombre en el workpath para evitar reconstruirlo mal.
+    # estan corregidos en el codigo fuente).
     work_dir = os.path.abspath(work_dir)
-    gen_spec = os.path.join(work_dir, f"{name}.spec")
     if os.path.isdir(work_dir):
         shutil.rmtree(work_dir, ignore_errors=True)
-    if os.path.isfile(gen_spec):
-        os.remove(gen_spec)
+    if not os.path.isfile(SPLASH):
+        raise SystemExit(f"Falta la imagen de splash: {SPLASH}")
 
-    cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--onefile"]
-    if windowed:
-        cmd.append("--windowed")
-    cmd += ["--name", name, f"--add-data={LOGO};temps", f"--icon={ICON}"]
-    for hid in HIDDEN_IMPORTS:
-        cmd += ["--hidden-import", hid]
-    cmd += ["--distpath", dist_dir, "--workpath", work_dir]
-    cmd += [os.path.join(PROJECT_ROOT, "app", "login.py")]
+    # El spec generado reemplaza a la CLI: es la unica forma de configurar el
+    # texto y la posicion de la splash de PyInstaller en un build onefile.
+    spec_path = _write_spec(name, windowed, work_dir)
+    cmd = [
+        sys.executable, "-m", "PyInstaller",
+        "--noconfirm",
+        "--distpath", dist_dir,
+        "--workpath", work_dir,
+        spec_path,
+    ]
     print(f"== Compilando {name}.exe ==")
     result = subprocess.run(cmd, cwd=PROJECT_ROOT)
     if result.returncode != 0:
